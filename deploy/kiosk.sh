@@ -74,8 +74,25 @@ if [ -z "$BROWSER" ]; then
   exit 1
 fi
 
+# Escape hatch for the placement problem below. Empty (the default) lets
+# Chromium pick its own backend. Setting CYCLETIME_OZONE=x11 runs both windows
+# through XWayland, where --window-position is obeyed literally and the two
+# screens separate without any compositor rule:
+#
+#   CYCLETIME_OZONE=x11 ~/cycletime/deploy/kiosk.sh
+#
+# Try it before writing window rules; if Chromium refuses to start with it,
+# unset it again and use the rules.
+OZONE="${CYCLETIME_OZONE:-}"
+
 launch() {
-  local url="$1" profile="$2" x="$3" y="$4" w="$5" h="$6"
+  local url="$1" profile="$2" x="$3" y="$4" w="$5" h="$6" class="$7"
+  # --class sets the window's app_id. The two windows MUST carry different ones:
+  # under Wayland --window-position is only a hint, so placement often has to be
+  # enforced by a compositor rule, and a rule matching plain "chromium-browser"
+  # would catch both windows and drag the 7" dashboard onto the 40" with the
+  # board. See "The two screens" in the README for the rules themselves.
+  #
   # --password-store=basic keeps Chromium off gnome-keyring/libsecret. The Pi
   # autologins, so PAM never unlocks the login keyring, and Chromium asking the
   # secret service for its encryption key pops an "unlock your login keyring"
@@ -84,9 +101,11 @@ launch() {
   "$BROWSER" \
     --kiosk \
     --app="$url" \
+    --class="$class" \
     --user-data-dir="$HOME/.config/$profile" \
     --window-position="$x,$y" \
     --window-size="$w,$h" \
+    ${OZONE:+--ozone-platform="$OZONE"} \
     --password-store=basic \
     --no-first-run \
     --noerrdialogs \
@@ -102,11 +121,11 @@ launch() {
 # 40" scoreboard first: it is the screen people actually look at, so it should
 # be up even if the 7" panel has a problem.
 if [ -n "$HDMI_OUT" ] || [ "$HAVE_RANDR" = "0" ]; then
-  launch "$BOARD_URL" cycletime-hdmi "$DSI_W" 0 "$HDMI_W" "$HDMI_H"
+  launch "$BOARD_URL" cycletime-hdmi "$DSI_W" 0 "$HDMI_W" "$HDMI_H" cycletime-board
   sleep 3
 fi
 
-launch "$DASH_URL" cycletime-dsi 0 0 "$DSI_W" "$DSI_H"
+launch "$DASH_URL" cycletime-dsi 0 0 "$DSI_W" "$DSI_H" cycletime-dash
 
 # Keep this script alive so the desktop session treats it as the running app;
 # killing it takes both browsers down together.

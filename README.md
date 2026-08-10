@@ -125,13 +125,37 @@ second Chromium sharing a profile does not open a second window — it hands the
 URL to the running instance and exits, leaving the 40" blank. If you edit that
 script, keep the separate profiles.
 
-If window placement misbehaves under Wayfire, pin them by app-id instead in
-`~/.config/wayfire.ini`:
+Each window is launched with its own app-id — `cycletime-board` for the 40" and
+`cycletime-dash` for the 7" — so the two can be told apart by name.
+
+**If both pages land on one screen,** the compositor ignored `--window-position`.
+Under Wayland that flag is only a hint: a client cannot place its own window, so
+the compositor has the last word. Two ways out, easiest first.
+
+**1. Run the browsers through XWayland,** where the position is obeyed literally
+and no rules are needed:
+
+```bash
+CYCLETIME_OZONE=x11 ~/cycletime/deploy/kiosk.sh
+```
+
+If that separates the screens, make it permanent by adding `Environment` to the
+autostart entry, or by exporting `CYCLETIME_OZONE=x11` before the script runs.
+
+**2. Pin them by app-id** in the compositor. Match on the specific app-id, not
+on `chromium-browser` — that matches *both* windows and drags the dashboard onto
+the 40" along with the board. For Wayfire, in `~/.config/wayfire.ini`:
 
 ```ini
 [window-rules]
-r1 = on created if app_id is "chromium-browser" then move 800 0
+r1 = on created if app_id is "cycletime-board" then move 800 0
+r2 = on created if app_id is "cycletime-dash" then move 0 0
 ```
+
+Recent Raspberry Pi OS images run **labwc**, not Wayfire — check with
+`echo $XDG_CURRENT_DESKTOP`. Labwc has its own rule syntax in
+`~/.config/labwc/rules.xml`, matched by `identifier` against the same two
+app-ids; see `man labwc-config` for the exact element names on your version.
 
 ## Try it on Windows first
 
@@ -425,7 +449,7 @@ running repeatedly against the same file, which is what happens on every deploy.
 | **Screen blanks** | `deploy/kiosk.sh` disables blanking; make sure it's in `~/.config/autostart` |
 | **"Unlock your login keyring" blocks the screens at boot** | Chromium is asking gnome-keyring for its encryption key, which autologin never unlocked. `kiosk.sh` passes `--password-store=basic` to avoid it. If a prompt still appears, clear the stored keyring: `rm -f ~/.local/share/keyrings/*.keyring` and reboot |
 | **40" stays blank / both screens show the same page** | The two Chromium instances are sharing a profile. Each needs its own `--user-data-dir` — see `deploy/kiosk.sh` |
-| **Both pages open on one screen** | `wlr-randr` didn't position the outputs. Run it to see the detected names, then use the `wayfire.ini` window rule above |
+| **Both pages open on one screen** | The compositor ignored `--window-position`. Try `CYCLETIME_OZONE=x11 deploy/kiosk.sh`, or pin the windows by app-id (`cycletime-board` / `cycletime-dash`) — see "The two screens" above. Check `wlr-randr` positioned the outputs at all |
 | **Wrong team on the board** | Check **Shifts → Pattern** preview against reality and adjust the anchor date. Past data is corrected with `/api/shifts/recompute` |
 | **Board shows "NO TEAM SCHEDULED"** | That shift is set to `—` on the calendar. Tap the day and pick a team |
 | **A team shows `—` all month** | It has recorded no cycles — check the rotation covers it, and that the camera was running on its shifts |
