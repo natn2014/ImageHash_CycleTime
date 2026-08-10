@@ -16,6 +16,9 @@ BASE="http://localhost:8000"
 DASH_URL="$BASE/"
 BOARD_URL="$BASE/board"
 
+# Fallbacks only. The real sizes are read off the compositor below when
+# wlr-randr is available — assuming 800 wide is what makes the two windows
+# overlap on a panel that is not the original 7" 800x480.
 DSI_W=800
 DSI_H=480
 HDMI_W=1920
@@ -44,6 +47,31 @@ xset s off -dpms 2>/dev/null || true
 wlr-randr 2>/dev/null | grep -q . && HAVE_RANDR=1 || HAVE_RANDR=0
 
 # --------------------------------------------------------------- outputs
+# Report an output's LOGICAL size — the coordinate space windows are placed in,
+# which is the current mode divided by the scale, with the axes swapped on a
+# rotated panel. The physical mode is the wrong number to use: a 1280x720 panel
+# at scale 2 occupies 640x360 of layout, and a 7" Touch Display 2 is a portrait
+# 720x1280 that reports 1280x720 once rotated. Echoes "W H", nothing on failure.
+out_logical_size() {
+  wlr-randr 2>/dev/null | awk -v want="$1" '
+    /^[A-Za-z]/  { inblk = ($1 == want); next }
+    !inblk       { next }
+    /current/    { split($1, m, "x"); w = m[1]; h = m[2] }
+    /Scale:/     { s = $2 }
+    /Transform:/ { t = $2 }
+    END {
+      if (w == "") exit 1
+      if (s == "" || s + 0 <= 0) s = 1
+      # Quarter-turns swap the axes. Matched loosely because the spelling
+      # varies by version and by what wrote the config: "90", "270",
+      # "flipped-90", or the words the Pi Screen Configuration tool uses.
+      if (t ~ /(^|-)(90|270)$/ || t == "left" || t == "right") {
+        tmp = w; w = h; h = tmp
+      }
+      printf "%d %d\n", int(w / s), int(h / s)
+    }'
+}
+
 # Names are detected rather than hard-coded: DSI enumerates variously as
 # DSI-1 or DSI-2 depending on kernel and overlay.
 DSI_OUT=""
@@ -58,8 +86,19 @@ if [ "$HAVE_RANDR" = "1" ]; then
   done
   echo "detected outputs: DSI='${DSI_OUT:-none}' HDMI='${HDMI_OUT:-none}'"
 
+  # Take the measured sizes over the defaults at the top of this file. The DSI
+  # width in particular is load-bearing: it is the seam between the two screens,
+  # and guessing it too small overlaps the board onto the panel.
+  if [ -n "$DSI_OUT" ] && read -r _w _h < <(out_logical_size "$DSI_OUT"); then
+    DSI_W="$_w"; DSI_H="$_h"
+  fi
+  if [ -n "$HDMI_OUT" ] && read -r _w _h < <(out_logical_size "$HDMI_OUT"); then
+    HDMI_W="$_w"; HDMI_H="$_h"
+  fi
+  echo "logical sizes: DSI=${DSI_W}x${DSI_H} HDMI=${HDMI_W}x${HDMI_H} (seam at x=${DSI_W})"
+
   # Lay the two outputs side by side so a window's x-position selects which
-  # screen it lands on: DSI occupies 0..799, HDMI starts at 800.
+  # screen it lands on: the DSI occupies 0..DSI_W-1, the HDMI starts at DSI_W.
   if [ -n "$DSI_OUT" ]; then
     wlr-randr --output "$DSI_OUT" --on --pos 0,0 2>/dev/null || true
   fi

@@ -23,7 +23,7 @@ with the team on shift. Two screens:
 |---|---|
 | Computer | Raspberry Pi 5, 8 GB (a Pi 4 works too) |
 | Camera | Any USB webcam (UVC). 640×480 is plenty |
-| Control screen | Official 7" DSI touchscreen, 800×480 |
+| Control screen | Official 7" DSI touchscreen — 800×480, or a Touch Display 2 (720×1280 portrait, run rotated) |
 | Wall screen | Any HDMI display, 1920×1080 (40" here) |
 | Lighting | Even light on the box you draw — see [Aiming the camera](#aiming-the-camera) |
 
@@ -117,8 +117,22 @@ why a tuned line can be updated without being re-tuned.
 | `/setup` | 7" DSI | Camera aiming and detection thresholds |
 | `/shifts` | 7" DSI | Shift calendar and rotation pattern |
 
-`deploy/kiosk.sh` lays the outputs side by side with `wlr-randr` (DSI at x=0,
-HDMI at x=800) and starts two Chromium instances positioned onto each.
+`deploy/kiosk.sh` lays the outputs side by side with `wlr-randr` — the DSI at
+x=0, the HDMI immediately to its right — and starts two Chromium instances
+positioned onto each.
+
+The seam between them is **measured, not assumed**. The script reads each
+output's logical size from `wlr-randr` (current mode ÷ scale, axes swapped when
+the panel is rotated) and places the HDMI at exactly the DSI's width. This
+matters on a rotated panel: a Touch Display 2 is a portrait 720×1280 that
+occupies 1280×720 of layout when set to orientation *left*, so a hardcoded x=800
+would drop the board 480 px on top of the dashboard. The script prints what it
+measured at startup:
+
+```
+detected outputs: DSI='DSI-1' HDMI='HDMI-A-1'
+logical sizes: DSI=1280x720 HDMI=1920x1080 (seam at x=1280)
+```
 
 **Each browser needs its own `--user-data-dir`, and the script sets one.** A
 second Chromium sharing a profile does not open a second window — it hands the
@@ -148,9 +162,13 @@ the 40" along with the board. For Wayfire, in `~/.config/wayfire.ini`:
 
 ```ini
 [window-rules]
-r1 = on created if app_id is "cycletime-board" then move 800 0
+r1 = on created if app_id is "cycletime-board" then move 1280 0
 r2 = on created if app_id is "cycletime-dash" then move 0 0
 ```
+
+Use *your* seam as the x for `cycletime-board` — the `logical sizes:` line the
+script prints tells you what it is. 1280 above is a rotated Touch Display 2; on
+the original 800×480 panel it is 800.
 
 Recent Raspberry Pi OS images run **labwc**, not Wayfire — check with
 `echo $XDG_CURRENT_DESKTOP`. Labwc has its own rule syntax in
