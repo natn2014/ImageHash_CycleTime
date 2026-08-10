@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no">
+<title>Cycle Time</title>
+<!-- Inline so the kiosk never requests a favicon the server doesn't serve. -->
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'><text y='14' font-size='14'>&#9201;</text></svg>">
+<link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+<div class="app">
+
+  <header class="topbar">
+    <span class="dot" id="dot"></span>
+    <span class="state-text" id="stateText">CONNECTING</span>
+
+    <div class="stat">
+      <span class="stat-label">Last</span>
+      <span class="stat-value lg" id="vLast">–</span>
+      <span class="stat-unit">s</span>
+    </div>
+    <div class="stat">
+      <span class="stat-label">Mean</span>
+      <span class="stat-value" id="vMean">–</span>
+      <span class="stat-unit">s</span>
+    </div>
+    <div class="stat">
+      <span class="stat-label" title="Coefficient of variation — scale-free measure of fluctuation">Fluct</span>
+      <span class="stat-value" id="vCv">–</span>
+      <span class="stat-unit">%</span>
+    </div>
+    <div class="stat">
+      <span class="stat-label">Today</span>
+      <span class="stat-value" id="vCount">0</span>
+    </div>
+
+    <span class="chip" id="chipOoc" hidden></span>
+    <span class="chip" id="chipStop" hidden></span>
+
+    <span class="spacer"></span>
+
+    <button class="btn" id="btnView" type="button">Table</button>
+    <a class="btn" id="btnCsv" href="/api/export.csv">CSV</a>
+    <a class="btn" href="/shifts">Shifts</a>
+    <a class="btn" href="/setup">Setup</a>
+  </header>
+
+  <section class="panel run" id="panelRun">
+    <div class="panel-head">
+      <span class="panel-title">Cycle time</span>
+      <span class="panel-note" id="runNote">last 100 cycles</span>
+    </div>
+    <div class="canvas-wrap">
+      <canvas id="runChart"></canvas>
+      <div class="empty" id="runEmpty">Waiting for the first products to pass the line…</div>
+    </div>
+  </section>
+
+  <section class="panel dist" id="panelDist">
+    <div class="panel-head">
+      <span class="panel-title">Distribution</span>
+      <span class="panel-note">seconds — two peaks = the line is running two different processes</span>
+    </div>
+    <div class="canvas-wrap">
+      <canvas id="histChart"></canvas>
+      <div class="empty" id="histEmpty">No data yet</div>
+    </div>
+  </section>
+
+  <!-- Table view: the WCAG-clean twin of both charts. Every plotted value is
+       readable here as text, including the stoppages the run chart omits. -->
+  <section class="panel table-panel" id="panelTable" hidden>
+    <div class="panel-head">
+      <span class="panel-title">Recent cycles</span>
+      <span class="panel-note">newest first</span>
+    </div>
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr><th>#</th><th>Time</th><th>Cycle (s)</th><th>Status</th></tr>
+        </thead>
+        <tbody id="tableBody"></tbody>
+      </table>
+    </div>
+  </section>
+
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script src="/static/vendor/chart.umd.min.js"></script>
+<script src="/static/app.js"></script>
+</body>
+</html>

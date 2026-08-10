@@ -1,0 +1,53 @@
+{
+  "station": {
+    "name": "LAYUP2"
+  },
+  "camera": {
+    "index": 0,
+    "width": 640,
+    "height": 480,
+    "fps": 15,
+    "fourcc": "MJPG"
+  },
+  "roi": {
+    "x": 117,
+    "y": 62,
+    "w": 418,
+    "h": 336
+  },
+  "detector": {
+    "enter_ratio": 0.15,
+    "exit_ratio": 0.07,
+    "diff_threshold": 25,
+    "bg_alpha": 0.02,
+    "min_present_s": 0.3
+  },
+  "cycle": {
+    "max_valid_s": 300.0,
+    "target_s": 14.0,
+    "diff_tolerance_s": 1.0
+  },
+  "shifts": {
+    "starts": [
+      "08:00",
+      "16:00",
+      "00:00"
+    ],
+    "teams": [
+      "A",
+      "B",
+      "C"
+    ],
+    "rotation_days": 7,
+    "rotation_anchor": "2026-08-03",
+    "rotation_direction": 1
+  },
+  "store": {
+    "db_path": "data/cycles.db",
+    "retain_days": 90
+  },
+  "server": {
+    "host": "0.0.0.0",
+    "port": 8000
+  }
+}

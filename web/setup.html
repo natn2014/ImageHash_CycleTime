@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no">
+<title>Setup — Cycle Time</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'><text y='14' font-size='14'>&#9201;</text></svg>">
+<link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+<div class="app">
+
+  <header class="topbar">
+    <span class="dot" id="dot"></span>
+    <span class="state-text" id="stateText">CONNECTING</span>
+    <span class="panel-title">Trip-line setup</span>
+    <span class="spacer"></span>
+    <button class="btn" id="btnReset" type="button">Undo</button>
+    <button class="btn primary" id="btnSave" type="button">Save ROI</button>
+    <a class="btn" href="/">Dashboard</a>
+  </header>
+
+  <div class="setup-body">
+
+    <div class="preview-pane">
+      <img id="preview" src="/api/preview.mjpg" alt="Live camera view of the conveyor">
+      <canvas id="roiCanvas"></canvas>
+    </div>
+
+    <aside class="side">
+      <h2>How to aim</h2>
+      <p class="hint">
+        Drag a box across the belt where product passes. Keep it just wider than
+        one product and clear of moving shadows, operators and the belt edge.
+      </p>
+
+      <h2>Occupancy</h2>
+      <!-- The live signal the thresholds act on. Watching this while product
+           passes is the fastest way to pick enter/exit values that work in
+           this specific lighting. -->
+      <div class="meter">
+        <div class="meter-fill" id="meterFill"></div>
+        <div class="meter-mark enter" id="markEnter"></div>
+        <div class="meter-mark exit" id="markExit"></div>
+      </div>
+      <p class="hint">
+        Should sit near 0 % on an empty belt and rise well past the red enter
+        mark as product passes.
+      </p>
+      <div class="readout" id="readout">–</div>
+
+      <h2>Thresholds</h2>
+      <div class="field">
+        <label for="enter">Enter ratio</label>
+        <input type="number" id="enter" step="0.01" min="0.01" max="1">
+      </div>
+      <div class="field">
+        <label for="exit">Exit ratio</label>
+        <input type="number" id="exit" step="0.01" min="0" max="1">
+      </div>
+      <div class="field">
+        <label for="thr">Pixel threshold</label>
+        <input type="number" id="thr" step="1" min="1" max="254">
+      </div>
+      <div class="field">
+        <label for="dwell">Dwell (s)</label>
+        <input type="number" id="dwell" step="0.1" min="0" max="10">
+      </div>
+      <button class="btn" id="btnApply" type="button">Apply thresholds</button>
+      <p class="hint">
+        Exit must stay below enter — the gap between them is what stops one
+        product being counted twice.
+      </p>
+    </aside>
+
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+<script src="/static/setup.js"></script>
+</body>
+</html>

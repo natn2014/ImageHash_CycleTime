@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no">
+<title>Shifts — Cycle Time</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'><text y='14' font-size='14'>&#9201;</text></svg>">
+<link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+<div class="app">
+
+  <header class="topbar">
+    <span class="panel-title">Shifts</span>
+    <div class="seg">
+      <button class="seg-btn active" id="tabCal" type="button">Calendar</button>
+      <button class="seg-btn" id="tabPat" type="button">Pattern</button>
+    </div>
+    <span class="chip" id="nowChip">—</span>
+    <span class="spacer"></span>
+    <a class="btn" href="/">Dashboard</a>
+    <a class="btn" href="/setup">Setup</a>
+  </header>
+
+  <!-- ------------------------------------------------------- calendar -->
+  <div class="setup-body" id="viewCal">
+
+    <section class="panel" style="flex:1 1 auto">
+      <div class="panel-head">
+        <button class="btn sm" id="prevMonth" type="button">‹</button>
+        <span class="panel-title" id="monthLabel">—</span>
+        <button class="btn sm" id="nextMonth" type="button">›</button>
+        <span class="panel-note">tap a day to override</span>
+      </div>
+      <div class="cal-grid" id="calGrid"></div>
+    </section>
+
+    <aside class="side">
+      <h2 id="editDate">Select a day</h2>
+      <p class="hint">
+        Days follow the rotation automatically. Only override when something is
+        unusual — a swap, a holiday, one team covering two shifts.
+      </p>
+      <div id="editRows"></div>
+      <button class="btn" id="btnClearDay" type="button" disabled>Back to rotation</button>
+      <p class="hint" id="editNote"></p>
+    </aside>
+  </div>
+
+  <!-- -------------------------------------------------------- pattern -->
+  <div class="setup-body" id="viewPat" hidden>
+
+    <section class="panel" style="flex:0 0 300px">
+      <div class="panel-head"><span class="panel-title">Pattern</span></div>
+
+      <div class="field">
+        <label for="s0">Shift 1 start</label>
+        <input type="time" id="s0">
+      </div>
+      <div class="field">
+        <label for="s1">Shift 2 start</label>
+        <input type="time" id="s1">
+      </div>
+      <div class="field">
+        <label for="s2">Shift 3 start</label>
+        <input type="time" id="s2">
+      </div>
+      <div class="field">
+        <label for="teams">Teams (comma separated)</label>
+        <input type="text" id="teams" placeholder="A,B,C">
+      </div>
+      <div class="field">
+        <label for="rotDays">Rotate every (days)</label>
+        <input type="number" id="rotDays" min="1" max="365">
+      </div>
+      <div class="field">
+        <label for="anchor">Rotation anchor date</label>
+        <input type="date" id="anchor">
+      </div>
+      <button class="btn primary" id="btnSavePattern" type="button">Save pattern</button>
+    </section>
+
+    <aside class="side" style="flex:1 1 auto">
+      <h2>Next 14 days</h2>
+      <p class="hint">
+        Adjust the anchor date until this preview matches who is really on
+        shift. That is easier and safer than counting weeks.
+      </p>
+      <div class="preview-table" id="previewTable"></div>
+    </aside>
+  </div>
+
+</div>
+
+<div class="toast" id="toast"></div>
+<script src="/static/shifts.js"></script>
+</body>
+</html>

@@ -1,0 +1,466 @@
+/* Cycle-time tracker — dark kiosk theme for the official 7" panel (800x480).
+ *
+ * Dark-only by design: this runs on a fixed wall display on a factory floor,
+ * never in a viewer's browser, so there is no light mode to honour. Colours are
+ * the validated dark-surface palette (series blue vs status red pass CVD at
+ * dE 25.7); type is sized to be read from a couple of metres back.
+ */
+
+:root {
+  color-scheme: dark;
+
+  --surface-1: #1a1a19;   /* chart surface */
+  --page: #0d0d0d;        /* page plane */
+  --text-primary: #ffffff;
+  --text-secondary: #c3c2b7;
+  --text-muted: #898781;
+  --gridline: #2c2c2a;
+  --baseline: #383835;
+  --border: rgba(255, 255, 255, 0.10);
+
+  --series-1: #3987e5;    /* cycle time */
+  --good: #0ca30c;
+  --warning: #fab219;
+  --critical: #d03b3b;    /* out-of-control points, stoppages */
+
+  --font: system-ui, -apple-system, "Segoe UI", sans-serif;
+}
+
+* { box-sizing: border-box; }
+
+/* Any explicit `display` below beats the browser's own [hidden] rule, so a
+ * hidden flex container stays on screen. Declared once, globally, rather than
+ * per class — this has already bitten both .panel and .setup-body. */
+[hidden] { display: none !important; }
+
+/* The platform scrollbar is ~30px wide here and dominates a 190px side panel.
+ * Slim it down — these lists are scrolled by dragging on a touchscreen anyway,
+ * so the bar is an indicator more than a control. */
+* { scrollbar-width: thin; scrollbar-color: var(--baseline) transparent; }
+*::-webkit-scrollbar { width: 8px; height: 8px; }
+*::-webkit-scrollbar-track { background: transparent; }
+*::-webkit-scrollbar-thumb { background: var(--baseline); border-radius: 4px; }
+
+html, body {
+  margin: 0;
+  padding: 0;
+  height: 100%;
+  overflow: hidden;           /* kiosk: the layout must never scroll */
+  background: var(--page);
+  color: var(--text-primary);
+  font-family: var(--font);
+  -webkit-font-smoothing: antialiased;
+  user-select: none;
+}
+
+/* ---------------------------------------------------------------- layout */
+
+.app {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  gap: 6px;
+  padding: 6px;
+}
+
+/* -------------------------------------------------------------- topbar */
+
+.topbar {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  height: 46px;
+  padding: 0 10px;
+  background: var(--surface-1);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  /* At 800px this row is close to full. Clip rather than let a long chip push
+   * the CSV and Setup buttons off the panel. */
+  overflow: hidden;
+}
+
+.stat { display: flex; align-items: baseline; gap: 4px; white-space: nowrap; flex: 0 0 auto; }
+
+.stat-label {
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+  color: var(--text-muted);
+}
+
+/* Proportional figures on standalone values — tabular-nums would make the
+ * big numbers look loose. Tabular is reserved for the table view below. */
+.stat-value { font-size: 18px; font-weight: 600; color: var(--text-primary); }
+.stat-value.lg { font-size: 24px; }
+.stat-unit { font-size: 10px; color: var(--text-muted); }
+
+.spacer { flex: 1 1 auto; }
+
+/* Live indicator: the dot is backed by a text label, never colour alone. */
+.dot {
+  width: 9px; height: 9px;
+  border-radius: 50%;
+  background: var(--text-muted);
+  flex: 0 0 auto;
+}
+.dot.live { background: var(--good); animation: pulse 2s ease-in-out infinite; }
+.dot.warn { background: var(--warning); }
+.dot.down { background: var(--critical); }
+
+@keyframes pulse { 50% { opacity: 0.35; } }
+
+.state-text {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  color: var(--text-secondary);
+}
+
+.chip {
+  font-size: 10.5px;
+  padding: 3px 7px;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  color: var(--text-secondary);
+  white-space: nowrap;
+  flex: 0 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.chip.alert { color: var(--critical); border-color: var(--critical); }
+
+/* --------------------------------------------------------------- buttons */
+
+.btn {
+  font-family: var(--font);
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  background: transparent;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  /* >=32px tall: this is a finger-operated touchscreen, not a mouse. */
+  min-height: 32px;
+  padding: 0 10px;
+  flex: 0 0 auto;
+  cursor: pointer;
+  text-decoration: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+.btn:hover, .btn:focus-visible { color: var(--text-primary); border-color: var(--text-muted); outline: none; }
+.btn:disabled { opacity: 0.4; cursor: default; }
+.btn:disabled:hover { color: var(--text-secondary); border-color: var(--border); }
+.btn.primary { color: var(--page); background: var(--series-1); border-color: var(--series-1); }
+.btn.primary:hover { filter: brightness(1.1); color: var(--page); }
+
+/* ---------------------------------------------------------------- panels */
+
+.panel {
+  background: var(--surface-1);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 8px 10px 4px;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;              /* lets the canvas shrink inside flex */
+  position: relative;
+}
+
+.panel.run { flex: 1 1 58%; }
+.panel.dist { flex: 1 1 42%; }
+.panel.table-panel { flex: 1 1 100%; }
+
+.panel-head {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  margin-bottom: 4px;
+}
+
+.panel-title {
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+  color: var(--text-secondary);
+}
+
+.panel-note { font-size: 10px; color: var(--text-muted); }
+
+.canvas-wrap { flex: 1 1 auto; min-height: 0; position: relative; }
+
+/* ----------------------------------------------------------- empty state */
+
+.empty {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 13px;
+  color: var(--text-muted);
+  text-align: center;
+  pointer-events: none;
+}
+.empty[hidden] { display: none; }
+
+/* ------------------------------------------------------------ table view */
+
+.table-wrap {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  margin: 0 -10px -4px;
+}
+
+table { width: 100%; border-collapse: collapse; font-size: 12px; }
+
+th {
+  position: sticky;
+  top: 0;
+  background: var(--surface-1);
+  text-align: left;
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-muted);
+  font-weight: 600;
+  padding: 5px 10px;
+  border-bottom: 1px solid var(--gridline);
+}
+
+/* Columns of figures must line up, so these do take tabular-nums. */
+td {
+  padding: 4px 10px;
+  color: var(--text-secondary);
+  border-bottom: 1px solid var(--gridline);
+  font-variant-numeric: tabular-nums;
+}
+
+td.ooc { color: var(--critical); font-weight: 600; }
+td.stop { color: var(--warning); }
+
+/* --------------------------------------------------------- setup screen */
+
+.setup-body { display: flex; gap: 8px; flex: 1 1 auto; min-height: 0; }
+
+.preview-pane {
+  flex: 1 1 auto;
+  position: relative;
+  background: #000;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* The <img> and the drag <canvas> are stacked and sized identically so the
+ * rectangle the operator draws maps 1:1 onto preview pixels. */
+#preview { display: block; max-width: 100%; max-height: 100%; }
+#roiCanvas { position: absolute; cursor: crosshair; touch-action: none; }
+
+.side {
+  flex: 0 0 190px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  background: var(--surface-1);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 10px;
+  overflow-y: auto;
+}
+
+.side h2 {
+  margin: 0;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+  color: var(--text-secondary);
+}
+
+.hint { font-size: 10.5px; line-height: 1.45; color: var(--text-muted); margin: 0; }
+
+.readout {
+  font-size: 11.5px;
+  font-variant-numeric: tabular-nums;
+  color: var(--text-secondary);
+  padding: 6px 8px;
+  background: var(--page);
+  border-radius: 6px;
+  border: 1px solid var(--border);
+}
+
+/* Occupancy meter — shows the live signal the trip-line thresholds act on,
+ * so thresholds can be tuned by eye against real product. */
+.meter {
+  position: relative;
+  height: 16px;
+  background: var(--page);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  overflow: hidden;
+}
+.meter-fill { height: 100%; width: 0%; background: var(--series-1); transition: width 120ms linear; }
+.meter-mark { position: absolute; top: 0; bottom: 0; width: 1px; }
+.meter-mark.enter { background: var(--critical); }
+.meter-mark.exit { background: var(--warning); }
+
+.field { display: flex; flex-direction: column; gap: 3px; }
+.field label { font-size: 10px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.05em; }
+.field input {
+  font-family: var(--font);
+  font-size: 12px;
+  color: var(--text-primary);
+  background: var(--page);
+  border: 1px solid var(--border);
+  border-radius: 5px;
+  padding: 6px 8px;
+  min-height: 30px;
+}
+
+/* ------------------------------------------------------- shifts calendar */
+
+/* Segmented control: Calendar / Pattern */
+.seg { display: flex; border: 1px solid var(--border); border-radius: 6px; overflow: hidden; }
+
+.seg-btn {
+  font-family: var(--font);
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-muted);
+  background: transparent;
+  border: 0;
+  padding: 0 12px;
+  min-height: 30px;
+  cursor: pointer;
+}
+.seg-btn.active { color: var(--page); background: var(--series-1); }
+
+.btn.sm { min-height: 26px; padding: 0 9px; font-size: 14px; line-height: 1; }
+
+/* 7 columns x 6 rows fills the panel exactly, so the month never scrolls. */
+.cal-grid {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  grid-auto-rows: 1fr;
+  gap: 2px;
+}
+
+.cal-head {
+  font-size: 9px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-muted);
+  text-align: center;
+  align-self: center;
+}
+
+.cal-day {
+  background: var(--page);
+  border: 1px solid transparent;
+  border-radius: 4px;
+  padding: 2px 3px;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  cursor: pointer;
+  min-width: 0;
+  overflow: hidden;
+}
+.cal-day:disabled { visibility: hidden; }        /* leading/trailing blanks */
+.cal-day.selected { border-color: var(--series-1); }
+.cal-day.today { background: #1f2a1f; }
+
+.cal-num {
+  font-size: 10px;
+  font-weight: 700;
+  color: var(--text-secondary);
+  font-variant-numeric: tabular-nums;
+}
+
+.cal-teams { display: flex; gap: 2px; }
+
+.cal-team {
+  flex: 1 1 0;
+  font-size: 9px;
+  font-weight: 700;
+  text-align: center;
+  border-radius: 2px;
+  background: var(--gridline);
+  color: var(--text-secondary);
+  line-height: 1.5;
+  min-width: 0;
+}
+/* An overridden slot is marked by its own colour AND an underline, so the
+ * exception is not signalled by colour alone. */
+.cal-team.over { background: var(--warning); color: var(--page); text-decoration: underline; }
+.cal-team.none { color: var(--text-muted); }
+
+/* --------------------------------------------------------- day editor */
+
+.edit-row { display: flex; align-items: center; gap: 4px; margin-bottom: 5px; }
+
+.edit-time {
+  flex: 0 0 34px;
+  font-size: 10px;
+  font-variant-numeric: tabular-nums;
+  color: var(--text-muted);
+}
+
+.pick {
+  flex: 1 1 0;
+  font-family: var(--font);
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--text-secondary);
+  background: var(--page);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  /* Finger-sized: this is tapped on a 7" panel, not clicked. */
+  min-height: 30px;
+  cursor: pointer;
+  min-width: 0;
+}
+.pick.on { color: var(--page); background: var(--series-1); border-color: var(--series-1); }
+
+/* ------------------------------------------------------ pattern preview */
+
+.preview-table { font-size: 10.5px; font-variant-numeric: tabular-nums; overflow-y: auto; }
+
+.preview-row {
+  display: flex;
+  gap: 6px;
+  padding: 3px 0;
+  border-bottom: 1px solid var(--gridline);
+}
+.preview-row.head { color: var(--text-muted); font-size: 9px; text-transform: uppercase; }
+.preview-row > span { flex: 1 1 0; }
+.preview-row > span:first-child { flex: 0 0 78px; color: var(--text-secondary); }
+
+.toast {
+  position: fixed;
+  left: 50%;
+  bottom: 14px;
+  transform: translateX(-50%);
+  background: var(--surface-1);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 8px 16px;
+  font-size: 12px;
+  color: var(--text-primary);
+  opacity: 0;
+  transition: opacity 200ms;
+  pointer-events: none;
+  z-index: 10;
+}
+.toast.show { opacity: 1; }

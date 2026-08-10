@@ -1,0 +1,271 @@
+/* 40" wall scoreboard — its own stylesheet, deliberately not the 7" one.
+ *
+ * Read from several metres away by people walking past, so everything is sized
+ * in vh/vw rather than px: the board fills any 16:9 panel instead of assuming
+ * exactly 1920x1080, and the type scales with it.
+ *
+ * Colours follow the supplied mockup. Contrast is checked against WCAG rather
+ * than eyeballed:
+ *   white   on navy  #12305F -> 13.0:1
+ *   white   on blue  #1878C8 ->  4.6:1
+ *   navy    on green #22B14C ->  6.1:1
+ *   white   on red   #C0392B ->  5.4:1
+ */
+
+:root {
+  color-scheme: dark;
+
+  --navy: #12305F;          /* headers and the gaps between panels */
+  --blue: #1878C8;          /* panel fill */
+  --blue-deep: #14649F;     /* secondary rows inside a panel */
+  --green: #22B14C;         /* within target tolerance */
+  --red: #C0392B;           /* beyond tolerance */
+  --ink: #ffffff;
+  --ink-dark: #0B1B33;      /* text on the green bar */
+  --ink-dim: rgba(255, 255, 255, 0.72);
+
+  --font: system-ui, -apple-system, "Segoe UI", sans-serif;
+}
+
+* { box-sizing: border-box; }
+
+html, body {
+  margin: 0;
+  padding: 0;
+  height: 100%;
+  overflow: hidden;              /* a wall board never scrolls */
+  background: var(--navy);
+  color: var(--ink);
+  font-family: var(--font);
+  -webkit-font-smoothing: antialiased;
+  user-select: none;
+  cursor: none;                  /* no pointer on an unattended display */
+}
+
+.board {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  gap: 0.4vh;
+  padding: 0.4vh;
+}
+
+/* ------------------------------------------------------------- station */
+
+.station {
+  flex: 0 0 auto;
+  height: 8.5vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--navy);
+  font-size: 5vh;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+}
+
+/* ---------------------------------------------------------------- live */
+
+.live {
+  flex: 0 0 auto;
+  height: 24vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 2vw;
+  background: var(--blue);
+  /* Proportional figures: tabular-nums makes a big standalone number read
+   * loose at this size. */
+  font-size: 13vh;
+  font-weight: 800;
+  white-space: nowrap;
+}
+
+.live-unit { font-size: 7vh; font-weight: 700; }
+
+/* Dimmed while no team is scheduled or no cycle has arrived yet, so a stale
+ * number is never mistaken for a live one. */
+.live.idle { background: var(--blue-deep); color: var(--ink-dim); }
+
+/* --------------------------------------------------------------- diff */
+
+.diff {
+  flex: 0 0 auto;
+  height: 9vh;
+  display: flex;
+  align-items: center;
+  justify-content: space-around;
+  background: var(--green);
+  color: var(--ink-dark);
+  font-size: 4.2vh;
+  font-weight: 800;
+  transition: background 300ms;
+}
+
+/* Over tolerance. The arrow and the signed number carry the same meaning as
+ * the colour, so the state survives for a colourblind reader. */
+.diff.over { background: var(--red); color: var(--ink); }
+
+.diff-item { display: flex; align-items: baseline; gap: 0.8vw; }
+.diff-label { font-size: 3vh; font-weight: 700; opacity: 0.85; }
+
+/* ---------------------------------------------------------------- day */
+
+.day {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  background: var(--blue);
+  padding: 1vh 2vw;
+}
+
+.day-date {
+  text-align: center;
+  font-size: 3.6vh;
+  font-weight: 800;
+  margin-bottom: 0.6vh;
+}
+
+.rank-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.6vh;
+  flex: 1 1 auto;
+  /* Centred rather than top-aligned: with only three rows in a tall panel the
+   * list would otherwise sit against the date with dead space beneath it. */
+  justify-content: center;
+  /* Rows shrink to their content, so the current-team wash is a badge around
+   * the row rather than a 1900px bar across the whole panel. */
+  align-items: flex-start;
+}
+
+.rank-row {
+  display: flex;
+  align-items: center;
+  gap: 1vw;
+  padding: 0.4vh 1vw;
+  border-radius: 0.8vh;
+  font-size: 3.4vh;
+  font-weight: 700;
+  line-height: 1.15;
+}
+
+/* An explicit numeral, so "best" is never carried by position alone. */
+.rank-num {
+  flex: 0 0 auto;
+  min-width: 2.6vh;
+  font-size: 2.4vh;
+  font-weight: 800;
+  opacity: 0.65;
+}
+
+/* Name and value stay adjacent. Spreading them to the panel edges put ~1400px
+ * between "Team A:" and its number on a 40" screen, which is a long scan to
+ * associate two things that belong together. A fixed name width still keeps
+ * the numbers aligned down the column. */
+.rank-name { flex: 0 0 auto; min-width: 11vw; }
+.rank-value { flex: 0 0 auto; font-variant-numeric: tabular-nums; }
+.rank-unit { font-size: 2.2vh; font-weight: 600; opacity: 0.75; margin-left: 0.4vw; }
+
+/* The team currently on shift, so the board says who owns the live number.
+ * A washed row plus a NOW tag — a bare dot read as a stray full stop. */
+.rank-row.current { background: rgba(255, 255, 255, 0.14); }
+
+.rank-row.current .rank-name::after {
+  content: "NOW";
+  display: inline-block;
+  margin-left: 0.6vw;
+  padding: 0.1vh 0.5vw;
+  border-radius: 0.5vh;
+  background: var(--ink);
+  color: var(--blue);
+  font-size: 1.5vh;
+  font-weight: 800;
+  vertical-align: middle;
+}
+
+.rank-row.empty { opacity: 0.55; }
+
+/* ------------------------------------------------------- week + month */
+
+.bottom { flex: 1 1 auto; min-height: 0; display: flex; gap: 0.4vh; }
+
+.panel {
+  display: flex;
+  flex-direction: column;
+  background: var(--blue);
+  min-width: 0;
+}
+.panel.week { flex: 1 1 55%; }
+.panel.month { flex: 1 1 45%; }
+
+.panel-head {
+  flex: 0 0 auto;
+  background: var(--navy);
+  text-align: center;
+  padding: 0.7vh 0;
+  font-size: 2.6vh;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+}
+
+.panel-body { flex: 1 1 auto; min-height: 0; padding: 1vh 1.6vw; overflow: hidden; }
+
+/* Week matrix: teams down, W1-W4 across. */
+table.week-grid {
+  width: 100%;
+  height: 100%;
+  /* Separated cells so two adjacent highlighted "best" weeks read as two
+   * results rather than merging into one pill. */
+  border-collapse: separate;
+  border-spacing: 0.4vw 0;
+  font-size: 2.8vh;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+table.week-grid th {
+  font-size: 2.2vh;
+  font-weight: 700;
+  opacity: 0.8;
+  padding-bottom: 0.5vh;
+}
+
+/* Fixed row height: without it the highlighted "best" cell's rounded block
+ * makes its row taller than the others and the grid reads as misaligned. */
+table.week-grid td { text-align: center; padding: 0; height: 4.2vh; }
+table.week-grid td.team-name { text-align: left; font-variant-numeric: normal; }
+table.week-grid td.na { opacity: 0.45; }
+
+/* The best cell in each week column, so a glance shows who led that week. */
+table.week-grid td.best { background: rgba(255, 255, 255, 0.16); border-radius: 0.6vh; }
+
+.month-label {
+  text-align: center;
+  font-size: 3vh;
+  font-weight: 800;
+  margin-bottom: 0.8vh;
+}
+
+/* ------------------------------------------------------------ offline */
+
+/* Shown when the API cannot be reached — otherwise the board would display a
+ * frozen number indefinitely and be believed. */
+.stale .live,
+.stale .day,
+.stale .panel { opacity: 0.35; }
+
+.offline-tag {
+  position: fixed;
+  top: 1vh;
+  right: 1.5vw;
+  background: var(--red);
+  color: var(--ink);
+  font-size: 2vh;
+  font-weight: 800;
+  padding: 0.5vh 1vw;
+  border-radius: 0.6vh;
+  display: none;
+}
+.stale .offline-tag { display: block; }

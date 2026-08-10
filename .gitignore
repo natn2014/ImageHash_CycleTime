@@ -1,0 +1,18 @@
+# Recorded cycle data — machine-specific, never committed
+data/
+*.db
+*.db-wal
+*.db-shm
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+*.egg-info/
+.pytest_cache/
+
+# Local overrides and test artifacts
+config.local.json
+config.json.tmp
+tests/fixture.mp4
+.playwright-mcp/

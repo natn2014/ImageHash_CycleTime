@@ -1,0 +1,27 @@
+[Unit]
+Description=Conveyor cycle-time tracker
+# The camera is a USB device, so wait for udev to finish enumerating it.
+After=multi-user.target dev-video0.device
+Wants=dev-video0.device
+
+[Service]
+Type=simple
+User=pi
+Group=video
+WorkingDirectory=/home/pi/cycletime
+ExecStart=/home/pi/cycletime/.venv/bin/python /home/pi/cycletime/run.py
+Restart=always
+RestartSec=5
+
+# Don't let a boot-time camera race turn into a permanent failure: an unplugged
+# USB cable should recover on its own without anyone SSHing in.
+StartLimitIntervalSec=0
+
+# Unbuffered so `journalctl -fu cycletime` shows cycles as they happen.
+Environment=PYTHONUNBUFFERED=1
+
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target

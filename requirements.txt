@@ -1,0 +1,11 @@
+# Cycle-Time Tracker runtime dependencies
+#
+# On Raspberry Pi 5 install opencv-python-headless (no GUI libs, ~200 MB lighter
+# and it never tries to pull in Qt/GTK). On a Windows dev box either works.
+opencv-python-headless>=4.9
+numpy>=1.26
+fastapi>=0.110
+uvicorn[standard]>=0.27
+
+# Dev / test only
+pytest>=8.0

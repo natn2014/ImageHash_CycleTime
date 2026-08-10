@@ -1,0 +1,678 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>คู่มือการใช้งาน — ระบบวัด Cycle Time</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'><text y='14' font-size='14'>&#128220;</text></svg>">
+<style>
+/* คู่มือสำหรับพิมพ์และอ่านบนจอ — พื้นขาวเพื่อให้พิมพ์แล้วไม่เปลืองหมึก
+   ฟอนต์ไทยเรียงตามลำดับ: Noto Sans Thai → Leelawadee UI (Windows) → Tahoma
+   line-height สูงกว่าปกติ เพราะสระบนและวรรณยุกต์ไทยซ้อนกันสองชั้น */
+:root {
+  --navy: #12305F;
+  --blue: #1878C8;
+  --green: #1E8E3E;
+  --red: #C0392B;
+  --amber: #B7791F;
+  --ink: #1a1a1a;
+  --ink-soft: #4a4a4a;
+  --line: #dcdcd8;
+  --paper: #ffffff;
+  --tint: #f4f7fb;
+  --font-th: "Noto Sans Thai", "Leelawadee UI", "Sarabun", Tahoma, system-ui, sans-serif;
+}
+
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  padding: 0 24px 80px;
+  background: var(--paper);
+  color: var(--ink);
+  font-family: var(--font-th);
+  font-size: 16px;
+  line-height: 1.85;
+  -webkit-font-smoothing: antialiased;
+}
+
+.wrap { max-width: 900px; margin: 0 auto; }
+
+/* ---------------------------------------------------------------- หัวเรื่อง */
+
+header.doc {
+  border-bottom: 4px solid var(--navy);
+  padding: 40px 0 20px;
+  margin-bottom: 8px;
+}
+
+h1 { font-size: 30px; line-height: 1.4; margin: 0 0 6px; color: var(--navy); }
+
+.sub { font-size: 15px; color: var(--ink-soft); margin: 0; }
+
+.meta {
+  margin-top: 14px;
+  font-size: 13px;
+  color: var(--ink-soft);
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 22px;
+}
+
+h2 {
+  font-size: 22px;
+  line-height: 1.5;
+  color: var(--navy);
+  margin: 44px 0 12px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid var(--line);
+}
+
+h2 .num {
+  display: inline-block;
+  min-width: 34px;
+  height: 34px;
+  line-height: 34px;
+  text-align: center;
+  background: var(--navy);
+  color: #fff;
+  border-radius: 6px;
+  font-size: 16px;
+  margin-right: 10px;
+  vertical-align: 2px;
+}
+
+h3 { font-size: 17px; color: var(--navy); margin: 26px 0 8px; }
+
+p { margin: 0 0 12px; }
+
+ul, ol { margin: 0 0 14px; padding-left: 26px; }
+li { margin-bottom: 6px; }
+
+strong { color: var(--navy); }
+
+code {
+  font-family: Consolas, "Courier New", monospace;
+  font-size: 0.88em;
+  background: var(--tint);
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  padding: 1px 5px;
+}
+
+/* ------------------------------------------------------------------ สารบัญ */
+
+nav.toc {
+  background: var(--tint);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 18px 24px;
+  margin: 24px 0;
+}
+nav.toc h2 { margin: 0 0 8px; font-size: 16px; border: 0; padding: 0; }
+nav.toc ol { margin: 0; padding-left: 22px; }
+nav.toc a { color: var(--ink); text-decoration: none; }
+nav.toc a:hover { color: var(--blue); text-decoration: underline; }
+
+/* -------------------------------------------------------------------- รูป */
+
+figure {
+  margin: 20px 0 26px;
+  /* รูปหน้าจอเป็นพื้นดำ ใส่กรอบเข้มเพื่อไม่ให้ลอยบนพื้นขาว */
+  border: 1px solid var(--navy);
+  border-radius: 8px;
+  overflow: hidden;
+  background: #0d0d0d;
+}
+figure img { display: block; width: 100%; height: auto; }
+figcaption {
+  font-size: 13px;
+  color: #fff;
+  background: var(--navy);
+  padding: 8px 14px;
+  line-height: 1.6;
+}
+
+/* ------------------------------------------------------------------ ตาราง */
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 14px 0 22px;
+  font-size: 15px;
+}
+th {
+  background: var(--navy);
+  color: #fff;
+  text-align: left;
+  padding: 9px 12px;
+  font-weight: 600;
+  line-height: 1.5;
+}
+td {
+  border-bottom: 1px solid var(--line);
+  padding: 9px 12px;
+  vertical-align: top;
+  line-height: 1.7;
+}
+tr:nth-child(even) td { background: #fafafa; }
+
+/* --------------------------------------------------------------- กล่องเตือน */
+
+.box {
+  border-left: 5px solid var(--blue);
+  background: var(--tint);
+  border-radius: 0 8px 8px 0;
+  padding: 14px 18px;
+  margin: 18px 0;
+}
+.box p:last-child { margin-bottom: 0; }
+.box .label {
+  display: block;
+  font-weight: 700;
+  color: var(--blue);
+  margin-bottom: 4px;
+}
+.box.warn { border-left-color: var(--red); background: #fdf3f2; }
+.box.warn .label { color: var(--red); }
+.box.tip { border-left-color: var(--green); background: #f2f9f4; }
+.box.tip .label { color: var(--green); }
+
+/* ------------------------------------------------------------- ป้ายสีสถานะ */
+
+.tag {
+  display: inline-block;
+  padding: 1px 9px;
+  border-radius: 999px;
+  font-size: 13px;
+  font-weight: 700;
+  color: #fff;
+  line-height: 1.7;
+  white-space: nowrap;
+}
+.tag.green { background: var(--green); }
+.tag.red { background: var(--red); }
+.tag.amber { background: var(--amber); }
+.tag.blue { background: var(--blue); }
+
+/* ---------------------------------------------------------------- ภาพวาด */
+
+.diagram { margin: 20px 0 26px; }
+.diagram svg { width: 100%; height: auto; display: block; }
+
+/* -------------------------------------------------------------- การพิมพ์ */
+
+@media print {
+  body { padding: 0; font-size: 12pt; }
+  h2 { page-break-after: avoid; }
+  figure, table, .box { page-break-inside: avoid; }
+  nav.toc { page-break-after: always; }
+  a { color: inherit; text-decoration: none; }
+}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<header class="doc">
+  <h1>คู่มือการใช้งาน<br>ระบบวัดรอบเวลาการผลิต (Cycle Time)</h1>
+  <p class="sub">สถานี LAYUP2 — ระบบตรวจจับด้วยกล้องบน Raspberry Pi</p>
+  <div class="meta">
+    <span>สำหรับ: พนักงานคุมสาย และหัวหน้ากะ</span>
+    <span>เวอร์ชัน 1.0</span>
+  </div>
+</header>
+
+<nav class="toc">
+  <h2>สารบัญ</h2>
+  <ol>
+    <li><a href="#s1">ระบบนี้ทำอะไร</a></li>
+    <li><a href="#s2">จอแสดงผลทั้งสองจอ</a></li>
+    <li><a href="#s3">วิธีอ่านบอร์ด 40 นิ้ว</a></li>
+    <li><a href="#s4">วิธีอ่านแดชบอร์ด 7 นิ้ว</a></li>
+    <li><a href="#s5">การตั้งกล้อง (สำคัญที่สุด)</a></li>
+    <li><a href="#s6">การตั้งกะและทีม</a></li>
+    <li><a href="#s7">การหยุดสาย (Stoppage)</a></li>
+    <li><a href="#s8">การแก้ปัญหาเบื้องต้น</a></li>
+    <li><a href="#s9">ข้อจำกัดของระบบ</a></li>
+  </ol>
+</nav>
+
+<!-- ============================================================ 1 -->
+<h2 id="s1"><span class="num">1</span>ระบบนี้ทำอะไร</h2>
+
+<p>
+  กล้องส่องลงมาที่สายพาน เราลากกรอบสี่เหลี่ยมคลุมจุดที่ชิ้นงานวิ่งผ่าน
+  <strong>ทุกครั้งที่มีชิ้นงานผ่านกรอบนั้น ระบบจะจับเวลาไว้</strong>
+  แล้วบันทึกว่าเป็นผลงานของทีมไหนตามตารางกะ
+</p>
+
+<p>สิ่งที่ระบบตอบให้ได้:</p>
+<ul>
+  <li>ตอนนี้ผลิตได้กี่วินาทีต่อชิ้น เทียบกับเป้าหมายแล้วเร็วหรือช้ากว่าเท่าไหร่</li>
+  <li>รอบเวลา <strong>ผันผวน</strong> มากแค่ไหน — สายนิ่งหรือเริ่มเพี้ยน</li>
+  <li>ทีม A, B, C ทีมไหนทำเวลาได้ดีที่สุด ทั้งรายวัน รายสัปดาห์ และรายเดือน</li>
+</ul>
+
+<div class="box">
+  <span class="label">ไม่ต้องต่อสายเข้าเครื่องจักร</span>
+  <p>
+    ระบบใช้กล้องมองอย่างเดียว ไม่ต้องต่อ PLC ไม่ต้องเดินสายเซนเซอร์
+    และไม่ต้องต่ออินเทอร์เน็ต — ข้อมูลทั้งหมดเก็บอยู่ในเครื่องที่หน้างาน
+  </p>
+</div>
+
+<!-- ============================================================ 2 -->
+<h2 id="s2"><span class="num">2</span>จอแสดงผลทั้งสองจอ</h2>
+
+<table>
+  <thead>
+    <tr><th style="width:22%">จอ</th><th style="width:26%">ใช้ทำอะไร</th><th>ใครใช้</th></tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><strong>40 นิ้ว</strong><br>(บนผนัง)</td>
+      <td>บอร์ดเปรียบเทียบผลงานทีม</td>
+      <td>ทุกคนในสายผลิตดูจากระยะไกล ไม่ต้องกดอะไร</td>
+    </tr>
+    <tr>
+      <td><strong>7 นิ้ว</strong><br>(จอสัมผัสที่เครื่อง)</td>
+      <td>กราฟละเอียด, ตั้งกล้อง, ตั้งกะ</td>
+      <td>หัวหน้ากะ และช่างเทคนิค</td>
+    </tr>
+  </tbody>
+</table>
+
+<p>
+  บนจอ 7 นิ้ว มีปุ่มสลับหน้าอยู่มุมขวาบน:
+  <strong>Table</strong> (ดูเป็นตาราง) ·
+  <strong>CSV</strong> (ดาวน์โหลดไป Excel) ·
+  <strong>Shifts</strong> (ตั้งกะ) ·
+  <strong>Setup</strong> (ตั้งกล้อง)
+</p>
+
+<!-- ============================================================ 3 -->
+<h2 id="s3"><span class="num">3</span>วิธีอ่านบอร์ด 40 นิ้ว</h2>
+
+<figure>
+  <img src="docs/board.png" alt="บอร์ดแสดงผล 40 นิ้ว แสดงชื่อสถานี เวลาต่อชิ้นล่าสุด แถบเป้าหมาย และตารางเปรียบเทียบทีมรายวัน รายสัปดาห์ รายเดือน">
+  <figcaption>บอร์ด 40 นิ้ว — อัปเดตทันทีที่มีชิ้นงานผ่าน</figcaption>
+</figure>
+
+<table>
+  <thead>
+    <tr><th style="width:30%">ส่วนของหน้าจอ</th><th>ความหมาย</th></tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><strong>LAYUP2</strong><br>(แถบบนสุด)</td>
+      <td>ชื่อสถานี</td>
+    </tr>
+    <tr>
+      <td><strong>TEAM C: 15.2 sec</strong><br>(ตัวเลขใหญ่)</td>
+      <td>ทีมที่เข้ากะอยู่ตอนนี้ และเวลาที่ใช้ผลิตชิ้นล่าสุด — ตัวเลขนี้เปลี่ยนทุกครั้งที่มีชิ้นงานผ่าน</td>
+    </tr>
+    <tr>
+      <td><strong>Target / Diff</strong><br>(แถบสี)</td>
+      <td>
+        เป้าหมาย และผลต่างจากเป้าหมาย<br>
+        <span class="tag green">เขียว</span> อยู่ในเกณฑ์ (ไม่เกิน 1 วินาทีจากเป้า)<br>
+        <span class="tag red">แดง</span> เกินเกณฑ์ — ช้ากว่าเป้ามากเกินไป<br>
+        เครื่องหมาย ▲ +1.2 คือ ช้ากว่าเป้า 1.2 วินาที (▼ คือเร็วกว่าเป้า)
+      </td>
+    </tr>
+    <tr>
+      <td><strong>วันที่ + รายชื่อทีม</strong></td>
+      <td>ค่าเฉลี่ยของแต่ละทีม<strong>วันนี้</strong> — <strong>ทีมที่ทำเวลาได้ดีที่สุดอยู่บนสุดเสมอ</strong> พร้อมเลขอันดับ 1, 2, 3</td>
+    </tr>
+    <tr>
+      <td><strong>WEEK</strong></td>
+      <td>
+        ค่าเฉลี่ยรายสัปดาห์ในเดือนนี้<br>
+        W1 = วันที่ 1–7 · W2 = 8–14 · W3 = 15–21 · W4 = 22–สิ้นเดือน<br>
+        ช่องที่ไฮไลต์ = ทีมที่ดีที่สุดของสัปดาห์นั้น
+      </td>
+    </tr>
+    <tr>
+      <td><strong>MONTH</strong></td>
+      <td>ค่าเฉลี่ยรวมทั้งเดือน เรียงจากดีที่สุดอยู่บนสุด</td>
+    </tr>
+  </tbody>
+</table>
+
+<h3>สัญลักษณ์ที่ต้องรู้</h3>
+<ul>
+  <li>ป้าย <span class="tag blue">NOW</span> = ทีมที่กำลังเข้ากะอยู่ตอนนี้</li>
+  <li>
+    เครื่องหมาย <strong>—</strong> = ทีมนั้น<strong>ยังไม่มีข้อมูล</strong>ในช่วงเวลานั้น
+    <em>ไม่ใช่ค่า 0</em> และจะถูกจัดไว้ล่างสุดเสมอ ไม่ถูกนับเป็นทีมที่ดีที่สุด
+  </li>
+  <li>ถ้าบอร์ดขึ้นคำว่า <strong>NO DATA</strong> และจอมืดลง = บอร์ดติดต่อกับเครื่องไม่ได้ ตัวเลขบนจอไม่ใช่ของจริงแล้ว</li>
+</ul>
+
+<div class="box tip">
+  <span class="label">ทำไมบางทีบอร์ดขึ้นว่ายังไม่มีข้อมูล</span>
+  <p>
+    ถ้าทีมเพิ่งเข้ากะได้ไม่นาน ยังไม่มีชิ้นงานผ่านครบ ระบบจะยังไม่มีค่าเฉลี่ยให้คำนวณ
+    ถือเป็นเรื่องปกติ รอสักครู่ตัวเลขจะขึ้นเอง
+  </p>
+</div>
+
+<!-- ============================================================ 4 -->
+<h2 id="s4"><span class="num">4</span>วิธีอ่านแดชบอร์ด 7 นิ้ว</h2>
+
+<figure>
+  <img src="docs/dashboard.png" alt="แดชบอร์ด 7 นิ้ว แสดงแถบสถานะด้านบน กราฟเส้น Cycle Time พร้อมเส้นควบคุม และกราฟแท่งการกระจายตัว">
+  <figcaption>แดชบอร์ด 7 นิ้ว — กราฟรอบเวลาและการกระจายตัว</figcaption>
+</figure>
+
+<h3>แถบด้านบน</h3>
+<table>
+  <thead>
+    <tr><th style="width:26%">ตัวเลข</th><th>ความหมาย</th></tr>
+  </thead>
+  <tbody>
+    <tr><td><strong>RUNNING</strong></td><td>สถานะระบบ (RUNNING = ทำงานปกติ, PRODUCT = มีชิ้นงานอยู่ในกรอบ, NO CAMERA = กล้องหลุด)</td></tr>
+    <tr><td><strong>LAST</strong></td><td>เวลาของชิ้นล่าสุด (วินาที)</td></tr>
+    <tr><td><strong>MEAN</strong></td><td>ค่าเฉลี่ยของรอบที่แสดงบนกราฟ</td></tr>
+    <tr><td><strong>FLUCT %</strong></td><td><strong>ค่าความผันผวน — ยิ่งน้อยยิ่งดี</strong> ใช้เทียบข้ามรุ่นสินค้าหรือข้ามความเร็วสายได้ เพราะเป็นค่าเปอร์เซ็นต์</td></tr>
+    <tr><td><strong>TODAY</strong></td><td>จำนวนชิ้นที่ผลิตได้ตั้งแต่เที่ยงคืนวันนี้</td></tr>
+  </tbody>
+</table>
+
+<h3>กราฟ CYCLE TIME (กราฟเส้น)</h3>
+<p>แสดงทุกรอบเรียงตามลำดับเวลา — <strong>นี่คือจุดที่มองเห็นความผันผวนได้ชัดที่สุด</strong></p>
+<ul>
+  <li><strong>เส้น x̄</strong> = ค่าเฉลี่ย</li>
+  <li><strong>เส้นประแดง UCL / LCL</strong> = ขีดจำกัดควบคุม จุดที่หลุดออกนอกเส้นนี้ <strong>ไม่ใช่ความผันผวนตามปกติ</strong> แต่แปลว่ามีอะไรเกิดขึ้นจริง ๆ ควรตามหาสาเหตุ</li>
+  <li><strong>เส้นประเขียว target</strong> = เป้าหมาย</li>
+  <li><strong>จุดสีแดงและใหญ่กว่าปกติ</strong> = รอบที่หลุดขีดควบคุม</li>
+</ul>
+
+<p>รูปแบบกราฟที่ควรสังเกต:</p>
+<table>
+  <thead>
+    <tr><th style="width:30%">ลักษณะกราฟ</th><th>มักแปลว่า</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>กระจายสม่ำเสมอรอบเส้น x̄</td><td>สายนิ่งดี ปกติ</td></tr>
+    <tr><td>ค่อย ๆ ไต่ขึ้นเรื่อย ๆ</td><td>เครื่องมือเริ่มสึก หรืออุปกรณ์ร้อนขึ้น</td></tr>
+    <tr><td>กระโดดขึ้นเป็นขั้นแล้วค้างอยู่ระดับใหม่</td><td>เปลี่ยนกะ เปลี่ยนวัตถุดิบ หรือเปลี่ยนการตั้งเครื่อง</td></tr>
+    <tr><td>ขึ้นลงเป็นจังหวะซ้ำ ๆ</td><td>มีอะไรบางอย่างเกิดขึ้นทุก ๆ กี่ชิ้น เช่น ต้องเติมของหรือเปลี่ยนถาด</td></tr>
+  </tbody>
+</table>
+
+<h3>กราฟ DISTRIBUTION (กราฟแท่ง)</h3>
+<p>แสดงการกระจายตัวของรอบเวลา</p>
+<ul>
+  <li><strong>ยอดเดียว</strong> = กระบวนการนิ่ง เป็นแบบที่ต้องการ</li>
+  <li>
+    <strong>สองยอด</strong> = สายกำลังทำงานอยู่ <strong>สองรูปแบบจริง ๆ</strong>
+    มักเกิดจากมีการแทรกแซงบางชิ้นแต่ไม่ทุกชิ้น เช่น บางชิ้นต้องแก้ไขเพิ่ม
+    — ข้อนี้มักเป็นสิ่งแรกที่ระบบช่วยให้เจอ
+  </li>
+</ul>
+
+<!-- ============================================================ 5 -->
+<h2 id="s5"><span class="num">5</span>การตั้งกล้อง (สำคัญที่สุด)</h2>
+
+<div class="box warn">
+  <span class="label">อ่านหัวข้อนี้ก่อนเชื่อตัวเลขทุกครั้ง</span>
+  <p>
+    ระบบตรวจจับด้วยการเทียบ<strong>ความสว่างที่เปลี่ยนไป</strong>ในกรอบ
+    ทำงานเร็วและไม่ต้องสอนระบบ แต่มีข้อแลกเปลี่ยนคือ
+    <strong>อะไรก็ตามที่ขยับอยู่ในกรอบ ระบบจะนับว่าเป็นชิ้นงาน</strong>
+    ความแม่นยำจึงขึ้นอยู่กับการวางกล้องและแสงเป็นหลัก
+  </p>
+</div>
+
+<div class="diagram">
+<svg viewBox="0 0 760 340" role="img" aria-label="ภาพอธิบายการวางกรอบตรวจจับบนสายพาน: กรอบควรคลุมกลางสายพาน กว้างกว่าชิ้นงานเล็กน้อย และไม่ควรรวมขอบสายพานหรือบริเวณที่มีเงาเคลื่อนไหว">
+  <rect x="0" y="0" width="760" height="340" fill="#141414" rx="8"/>
+  <text x="20" y="30" fill="#c3c2b7" font-family="sans-serif" font-size="14" font-weight="700">ภาพที่กล้องเห็น</text>
+
+  <!-- คำเตือน: ขอบสายพาน -->
+  <text x="740" y="30" fill="#d03b3b" font-family="sans-serif" font-size="13" font-weight="700" text-anchor="end">เลี่ยง: ขอบสายพาน และเงาที่ขยับ</text>
+  <line x1="700" y1="40" x2="700" y2="86" stroke="#d03b3b" stroke-width="2"/>
+  <polygon points="700,95 694,83 706,83" fill="#d03b3b"/>
+
+  <!-- สายพาน -->
+  <rect x="0" y="95" width="760" height="10" fill="#5a5a5a"/>
+  <rect x="0" y="105" width="760" height="145" fill="#2e2e2e"/>
+  <rect x="0" y="250" width="760" height="10" fill="#5a5a5a"/>
+
+  <!-- ชิ้นงาน -->
+  <rect x="60" y="140" width="100" height="75" rx="5" fill="#6f6f6f"/>
+  <rect x="330" y="140" width="100" height="75" rx="5" fill="#8a8a8a"/>
+  <rect x="600" y="140" width="100" height="75" rx="5" fill="#6f6f6f"/>
+
+  <!-- กรอบตรวจจับ (ป้ายอยู่เหนือกรอบ ไม่ทับชิ้นงาน) -->
+  <rect x="295" y="122" width="170" height="112" fill="none" stroke="#3987e5" stroke-width="3" stroke-dasharray="9 6" rx="4"/>
+  <text x="380" y="115" fill="#3987e5" font-family="sans-serif" font-size="14" font-weight="700" text-anchor="middle">กรอบตรวจจับ</text>
+
+  <!-- คำแนะนำ: กรอบที่ถูกต้อง -->
+  <text x="380" y="276" fill="#0ca30c" font-family="sans-serif" font-size="13" font-weight="700" text-anchor="middle">ถูก: กรอบคลุมกลางสายพาน กว้างกว่าชิ้นงานเล็กน้อย</text>
+
+  <!-- ทิศทาง -->
+  <line x1="180" y1="308" x2="570" y2="308" stroke="#898781" stroke-width="2"/>
+  <polygon points="580,308 566,302 566,314" fill="#898781"/>
+  <text x="380" y="330" fill="#898781" font-family="sans-serif" font-size="13" text-anchor="middle">ทิศทางการไหลของสายพาน</text>
+</svg>
+</div>
+
+<h3>สิ่งที่ควรทำ</h3>
+<ul>
+  <li>ส่องกล้อง<strong>ลงตรง ๆ</strong> ที่สายพาน ให้ตั้งฉากมากที่สุดเท่าที่ทำได้</li>
+  <li>ลากกรอบให้<strong>กว้างกว่าชิ้นงานเล็กน้อย</strong> และอยู่ในสายพาน ไม่ล้ำขอบ</li>
+  <li>ถ้าบริเวณนั้นแสงน้อย ให้ติดไฟ LED แบบอยู่กับที่เพิ่ม</li>
+  <li>
+    ดูค่า <strong>Occupancy</strong> ในหน้า Setup ขณะที่ชิ้นงานวิ่งผ่าน:
+    ตอนสายพานว่างควรใกล้ <strong>0%</strong> และตอนชิ้นงานผ่านต้องพุ่ง<strong>เกินขีดสีแดง</strong>ชัดเจน
+  </li>
+</ul>
+
+<h3>สิ่งที่ต้องเลี่ยง</h3>
+<ul>
+  <li>แสงแดดจากหน้าต่าง หรืออะไรก็ตามที่ทำให้<strong>เงาขยับ</strong></li>
+  <li>คน มือ หรือรถโฟล์คลิฟท์ที่เดินผ่านกรอบ</li>
+  <li>ขอบสายพาน หรือราวกั้นที่สะท้อนแสง อยู่ในกรอบ</li>
+</ul>
+
+<h3>การปรับค่าละเอียด (แตะที่หน้า Setup)</h3>
+<p>ปรับเฉพาะเมื่อการนับผิดพลาดเท่านั้น ค่าที่ปรับจะบันทึกทันที</p>
+
+<table>
+  <thead>
+    <tr><th style="width:26%">ค่า</th><th style="width:37%">เพิ่มค่าเมื่อ</th><th>ลดค่าเมื่อ</th></tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><strong>Enter ratio</strong><br>(ปกติ 0.15)</td>
+      <td>เงาหรือสัญญาณรบกวนทำให้นับเกิน</td>
+      <td>ชิ้นงานเล็ก ระบบตรวจไม่เจอ</td>
+    </tr>
+    <tr>
+      <td><strong>Exit ratio</strong><br>(ปกติ 0.07)</td>
+      <td>ระบบไม่ยอมมองว่าชิ้นงานออกจากกรอบแล้ว</td>
+      <td>กรอบกะพริบว่างทั้งที่ชิ้นงานยังอยู่</td>
+    </tr>
+    <tr>
+      <td><strong>Pixel threshold</strong><br>(ปกติ 25)</td>
+      <td>ภาพมีสัญญาณรบกวนหรือเป็นเม็ด</td>
+      <td>สีชิ้นงานใกล้เคียงกับสีสายพานมาก</td>
+    </tr>
+    <tr>
+      <td><strong>Dwell</strong><br>(ปกติ 0.3 วินาที)</td>
+      <td>มีการกะพริบสั้น ๆ แล้วถูกนับเป็นชิ้นงาน</td>
+      <td>ชิ้นงานวิ่งเร็วจนระบบนับไม่ทัน</td>
+    </tr>
+  </tbody>
+</table>
+
+<div class="box warn">
+  <span class="label">Exit ต้องน้อยกว่า Enter เสมอ</span>
+  <p>
+    ช่องว่างระหว่างสองค่านี้คือสิ่งที่ป้องกันไม่ให้ชิ้นงานชิ้นเดียวถูกนับซ้ำสองครั้ง
+    ถ้าตั้งให้ Exit สูงกว่าหรือเท่ากับ Enter ระบบจะแก้ค่าให้อัตโนมัติ
+  </p>
+</div>
+
+<div class="box tip">
+  <span class="label">ตรวจสอบก่อนเชื่อตัวเลข</span>
+  <p>
+    ใช้<strong>นาฬิกาจับเวลาจับด้วยมือ 20 ชิ้นติดกัน</strong> แล้วเทียบกับตัวเลขบนหน้าจอ
+    นี่เป็นวิธีเดียวที่พิสูจน์ได้ว่าค่าที่ตั้งไว้เหมาะกับแสงและชิ้นงานจริงของเรา
+    โดยปกติจะต้องปรับค่าอีกหนึ่งรอบหลังทดสอบ
+  </p>
+</div>
+
+<!-- ============================================================ 6 -->
+<h2 id="s6"><span class="num">6</span>การตั้งกะและทีม</h2>
+
+<p>
+  ทีม A, B, C ทำงานวันละ 3 กะ กะละ 8 ชั่วโมง รวม 24 ชั่วโมง
+  <strong>ระบบคำนวณตารางกะให้เองอัตโนมัติ ไม่ต้องกรอกทุกวัน</strong>
+  จะแตะแก้เฉพาะวันที่มีเรื่องผิดปกติเท่านั้น
+</p>
+
+<figure>
+  <img src="docs/shifts.png" alt="หน้าตั้งกะ แสดงปฏิทินรายเดือน แต่ละวันมีทีมสามกะ และแผงแก้ไขด้านขวา">
+  <figcaption>หน้า Shifts — ปฏิทินกะรายเดือน (แตะที่วันเพื่อแก้ไข)</figcaption>
+</figure>
+
+<h3>ตั้งรูปแบบกะ (ทำครั้งเดียวตอนติดตั้ง)</h3>
+<p>ไปที่ <strong>Shifts → Pattern</strong></p>
+
+<table>
+  <thead>
+    <tr><th style="width:32%">ช่อง</th><th style="width:22%">ค่าปัจจุบัน</th><th>ความหมาย</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>Shift 1 / 2 / 3 start</td><td>08:00 / 16:00 / 00:00</td><td>เวลาเริ่มของแต่ละกะ กะละ 8 ชั่วโมง</td></tr>
+    <tr><td>Teams</td><td>A,B,C</td><td>ชื่อทีม เรียงตามลำดับการหมุนเวียน</td></tr>
+    <tr><td>Rotate every</td><td>7 วัน</td><td>ทุกกี่วันที่ทีมจะเลื่อนไปกะถัดไป</td></tr>
+    <tr><td>Rotation anchor</td><td>วันอ้างอิง</td><td>วันที่ทีม A อยู่กะที่ 1</td></tr>
+  </tbody>
+</table>
+
+<div class="box tip">
+  <span class="label">อย่านั่งนับสัปดาห์เอง</span>
+  <p>
+    ให้เปลี่ยนวันอ้างอิงไปเรื่อย ๆ แล้วดูตาราง <strong>Next 14 days</strong> ที่อยู่ข้าง ๆ
+    จนกว่าจะตรงกับทีมที่เข้ากะจริง — นี่คือเหตุผลที่มีตารางตัวอย่างนั้นอยู่
+  </p>
+</div>
+
+<p>
+  <strong>ลำดับกะยึดตามลำดับที่กรอก ไม่ใช่ตามเข็มนาฬิกา</strong>
+  การกรอก 08:00, 16:00, 00:00 หมายความว่ากะที่ 1 คือกะเช้า 08:00
+  และกะที่ 3 คือกะดึก 00:00 ตรงกับที่หน้างานเรียกกัน
+</p>
+
+<h3>แก้ไขเฉพาะบางวัน</h3>
+<p>ไปที่ <strong>Shifts → Calendar</strong> แล้วแตะที่วันที่ต้องการ จากนั้นเลือกทีมของแต่ละกะ</p>
+<ul>
+  <li><span class="tag amber">ช่องสีเหลืองขีดเส้นใต้</span> = วันที่ถูกแก้ไขแล้ว ไม่ได้ใช้ตารางอัตโนมัติ</li>
+  <li>เลือก <strong>—</strong> = <strong>ไม่มีทีมทำงานกะนั้น</strong> เช่น วันหยุด หรือหยุดสาย</li>
+  <li>ปุ่ม <strong>Back to rotation</strong> = ยกเลิกการแก้ไข กลับไปใช้ตารางอัตโนมัติ</li>
+</ul>
+
+<div class="box">
+  <span class="label">เลือก "—" กับ ไม่แตะเลย ต่างกัน</span>
+  <p>
+    เลือก <strong>—</strong> คือบอกระบบว่า<em>ไม่มีใครทำงานกะนั้นจริง ๆ</em><br>
+    ส่วนวันที่ไม่ได้แตะเลย ระบบจะใช้ตารางหมุนเวียนอัตโนมัติตามปกติ
+  </p>
+</div>
+
+<h3>ถ้าตารางกะกรอกผิดย้อนหลัง</h3>
+<p>
+  ระบบบันทึกชื่อทีมลงไป<strong>ตอนที่ชิ้นงานผ่าน</strong> ดังนั้นการแก้ปฏิทินทีหลัง
+  จะไม่ไปเปลี่ยนตัวเลขของเดือนที่แล้วโดยที่เราไม่รู้ตัว
+  ถ้าต้องการให้แก้ย้อนหลังจริง ๆ ให้แก้ปฏิทินก่อน แล้วแจ้งช่างเทคนิคให้สั่งคำนวณใหม่
+  (คำสั่ง <code>/api/shifts/recompute</code>)
+</p>
+
+<!-- ============================================================ 7 -->
+<h2 id="s7"><span class="num">7</span>การหยุดสาย (Stoppage)</h2>
+
+<p>
+  ถ้าไม่มีชิ้นงานผ่านนานเกิน <strong>5 นาที</strong> ระบบจะถือว่าเป็น<strong>การหยุดสาย</strong>
+  ไม่ใช่รอบการผลิตปกติ
+</p>
+
+<ul>
+  <li><strong>ไม่ถูกนำไปคิดค่าเฉลี่ย</strong> และไม่ถูกวาดลงกราฟ</li>
+  <li>เหตุผล: ถ้าเอาช่วงพักเที่ยงไปรวมด้วย กราฟจะถูกดึงจนอ่านความผันผวนจริง ๆ ไม่ออกเลย</li>
+  <li>แต่ยังเห็นได้ใน<strong>ป้ายบนแถบด้านบน</strong> ในหน้า <strong>Table</strong> และในไฟล์ <strong>CSV</strong></li>
+</ul>
+
+<!-- ============================================================ 8 -->
+<h2 id="s8"><span class="num">8</span>การแก้ปัญหาเบื้องต้น</h2>
+
+<table>
+  <thead>
+    <tr><th style="width:34%">อาการ</th><th>สาเหตุและวิธีแก้</th></tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>หน้าจอขึ้น <strong>NO CAMERA</strong></td>
+      <td>สาย USB ของกล้องหลุดหรือหลวม ให้เสียบใหม่ ระบบจะกลับมาเองภายในไม่กี่วินาที</td>
+    </tr>
+    <tr>
+      <td><strong>ไม่นับเลย</strong> ทั้งที่มีชิ้นงานผ่าน</td>
+      <td>ค่า Occupancy ไม่เคยเกินขีดแดง ให้<strong>ลด Enter ratio</strong> หรือ <strong>ลด Pixel threshold</strong> หรือลากกรอบให้เล็กลงเพื่อให้ชิ้นงานกินพื้นที่ในกรอบมากขึ้น</td>
+    </tr>
+    <tr>
+      <td><strong>นับซ้ำ</strong> ชิ้นเดียวเป็นสองชิ้น</td>
+      <td>เพิ่มระยะห่างระหว่าง Enter กับ Exit (ลด Exit ลง) หรือ<strong>เพิ่มค่า Dwell</strong></td>
+    </tr>
+    <tr>
+      <td><strong>นับมั่ว</strong> ทั้งที่สายพานว่าง</td>
+      <td>มีอะไรขยับอยู่ในกรอบ เช่น เงา คน หรือแสงแดด ให้<strong>ย้ายกรอบก่อน</strong> ถ้ายังไม่หายค่อยเพิ่ม Pixel threshold</td>
+    </tr>
+    <tr>
+      <td>ค้างที่คำว่า <strong>PRODUCT</strong> ตลอด</td>
+      <td>แสงเปลี่ยนไปจากตอนที่ระบบจำภาพพื้นหลังไว้ ระบบจะแก้ตัวเองภายใน 5 นาที หรือกด Save ROI ใหม่เพื่อให้แก้ทันที</td>
+    </tr>
+    <tr>
+      <td>บอร์ด 40 นิ้ว<strong>ขึ้นทีมผิด</strong></td>
+      <td>ไปดู <strong>Shifts → Pattern</strong> เทียบตาราง Next 14 days กับความจริง แล้วปรับวันอ้างอิง</td>
+    </tr>
+    <tr>
+      <td>บอร์ดขึ้น <strong>NO TEAM SCHEDULED</strong></td>
+      <td>กะนั้นถูกตั้งเป็น <strong>—</strong> ไว้ในปฏิทิน ให้แตะที่วันนั้นแล้วเลือกทีม</td>
+    </tr>
+    <tr>
+      <td>บอร์ดมืดลงและขึ้น <strong>NO DATA</strong></td>
+      <td>บอร์ดติดต่อกับเครื่องไม่ได้ ให้แจ้งช่างเทคนิค — <strong>อย่าเชื่อตัวเลขที่ค้างอยู่บนจอ</strong></td>
+    </tr>
+    <tr>
+      <td>ทีมใดทีมหนึ่งขึ้น <strong>—</strong> ทั้งเดือน</td>
+      <td>ทีมนั้นไม่มีข้อมูลเลย ให้ตรวจว่าตารางหมุนเวียนครอบคลุมทีมนั้นหรือไม่ และตอนทีมนั้นเข้ากะ กล้องทำงานอยู่หรือเปล่า</td>
+    </tr>
+  </tbody>
+</table>
+
+<!-- ============================================================ 9 -->
+<h2 id="s9"><span class="num">9</span>ข้อจำกัดของระบบ</h2>
+
+<div class="box warn">
+  <span class="label">ระบบนับชิ้นที่ผ่าน ไม่ได้ตรวจคุณภาพ</span>
+  <p>
+    ระบบนี้วัดช่วงเวลาระหว่างชิ้นงานที่ผ่านจุดหนึ่งบนสายพาน
+    ซึ่งตรงกับความหมายของความผันผวนของรอบเวลาพอดี
+    แต่<strong>ไม่ใช่ระบบตรวจสอบคุณภาพ</strong>
+  </p>
+</div>
+
+<ul>
+  <li><strong>แยกของดีกับของเสียไม่ได้</strong></li>
+  <li>ชิ้นงานสองชิ้นที่<strong>ติดกันสนิท</strong> อาจถูกนับเป็นชิ้นเดียว</li>
+  <li>ถ้าสายติดขัดจนหยุดนาน จะถูกบันทึกเป็นการหยุดสาย ไม่ใช่รอบการผลิต</li>
+  <li>ข้อมูลเก็บไว้ <strong>90 วันย้อนหลัง</strong> เกินจากนั้นระบบจะลบทิ้งอัตโนมัติ — ถ้าต้องการเก็บนานกว่านั้นให้กด <strong>CSV</strong> ดาวน์โหลดไว้เป็นระยะ</li>
+</ul>
+
+</div>
+</body>
+</html>

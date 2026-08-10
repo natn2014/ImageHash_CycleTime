@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Cycle Time Board</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'><text y='14' font-size='14'>&#128200;</text></svg>">
+<link rel="stylesheet" href="/static/board.css">
+</head>
+<body>
+<div class="board" id="board">
+
+  <header class="station" id="station">—</header>
+
+  <section class="live" id="live">
+    <span id="liveText">WAITING FOR PRODUCT</span>
+  </section>
+
+  <section class="diff" id="diff">
+    <div class="diff-item">
+      <span class="diff-label">Target:</span>
+      <span id="targetVal">—</span>
+    </div>
+    <div class="diff-item">
+      <span class="diff-label">Diff:</span>
+      <span id="diffVal">—</span>
+    </div>
+  </section>
+
+  <section class="day">
+    <div class="day-date" id="dayDate">—</div>
+    <div class="rank-list" id="dayList"></div>
+  </section>
+
+  <div class="bottom">
+    <section class="panel week">
+      <div class="panel-head">WEEK</div>
+      <div class="panel-body">
+        <table class="week-grid">
+          <thead>
+            <tr><th></th><th>Week1</th><th>Week2</th><th>Week3</th><th>Week4</th></tr>
+          </thead>
+          <tbody id="weekBody"></tbody>
+        </table>
+      </div>
+    </section>
+
+    <section class="panel month">
+      <div class="panel-head">MONTH</div>
+      <div class="panel-body">
+        <div class="month-label" id="monthLabel">—</div>
+        <div class="rank-list" id="monthList"></div>
+      </div>
+    </section>
+  </div>
+
+</div>
+
+<div class="offline-tag">NO DATA</div>
+
+<script src="/static/board.js"></script>
+</body>
+</html>
