@@ -19,8 +19,14 @@ BOARD_URL="$BASE/board"
 # Fallbacks only. The real sizes are read off the compositor below when
 # wlr-randr is available — assuming 800 wide is what makes the two windows
 # overlap on a panel that is not the original 7" 800x480.
-DSI_W=800
-DSI_H=480
+#
+# If the measurement gets it wrong, override it from the environment rather
+# than editing these lines: this file is tracked, and a local edit here will
+# collide on the next `git pull`.
+#
+#   CYCLETIME_DSI_W=1280 CYCLETIME_DSI_H=720 deploy/kiosk.sh
+DSI_W=1280
+DSI_H=720
 HDMI_W=1920
 HDMI_H=1080
 
@@ -103,7 +109,17 @@ if [ "$HAVE_RANDR" = "1" ]; then
   if [ -n "$HDMI_OUT" ] && read -r _w _h < <(out_logical_size "$HDMI_OUT"); then
     HDMI_W="$_w"; HDMI_H="$_h"
   fi
-  echo "logical sizes: DSI=${DSI_W}x${DSI_H} HDMI=${HDMI_W}x${HDMI_H} (seam at x=${DSI_W})"
+fi
+
+# Applied after the measurement so an explicit override always wins, including
+# when wlr-randr is unavailable and the measurement never ran.
+DSI_W="${CYCLETIME_DSI_W:-$DSI_W}"
+DSI_H="${CYCLETIME_DSI_H:-$DSI_H}"
+HDMI_W="${CYCLETIME_HDMI_W:-$HDMI_W}"
+HDMI_H="${CYCLETIME_HDMI_H:-$HDMI_H}"
+echo "logical sizes: DSI=${DSI_W}x${DSI_H} HDMI=${HDMI_W}x${HDMI_H} (seam at x=${DSI_W})"
+
+if [ "$HAVE_RANDR" = "1" ]; then
 
   # Lay the two outputs side by side so a window's x-position selects which
   # screen it lands on: the DSI occupies 0..DSI_W-1, the HDMI starts at DSI_W.
