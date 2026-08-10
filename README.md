@@ -142,64 +142,39 @@ script, keep the separate profiles.
 Each window is launched with its own app-id — `cycletime-board` for the 40" and
 `cycletime-dash` for the 7" — so the two can be told apart by name.
 
-**If both pages land on one screen,** the compositor ignored `--window-position`.
-Under Wayland that flag is only a hint: a client cannot place its own window, so
-the compositor has the last word. Two ways out, easiest first.
+**If both pages land on one screen** (usually the 40"), here's the actual
+mechanism, worked out the hard way on a Pi 5 running labwc — the compositor
+recent Raspberry Pi OS images use, including on Pi 5 (`echo $XDG_CURRENT_DESKTOP`).
+It is not simply "`--window-position` is a hint and got ignored":
 
-**1. Run the browsers through XWayland,** where the position is obeyed literally
-and no rules are needed:
+- `--kiosk` makes Chromium request true Wayland fullscreen. That request
+  carries no target output of its own — the protocol has no field for it —
+  so the compositor picks one itself.
+- On labwc (and most wlroots compositors), that pick is "whichever output
+  currently has the pointer." Nothing in `--window-position`, `--window-size`,
+  or a compositor window rule changes this: they all affect a floating
+  window's geometry, but a *fullscreen* window's geometry is just "the whole
+  output," so there is nothing for them to change.
+- Both browsers launch close together with the pointer stationary, so without
+  intervention they request fullscreen while the pointer sits over the same
+  output and both land there, stacked.
 
-```bash
-CYCLETIME_OZONE=x11 ~/cycletime/deploy/kiosk.sh
-```
+We verified this by testing every documented alternative and watching it fail
+identically: `--window-position` alone, an XWayland run (`CYCLETIME_OZONE=x11`),
+and a labwc `<windowRules>` `MoveTo` action keyed off the window title (`identifier`
+doesn't even match — Chromium's Wayland/Ozone backend doesn't set the toplevel
+app-id from `--class`, only XWayland's WM_CLASS gets it). None of them moved a
+`--kiosk` window to a different output than the one the pointer was already on.
 
-If that separates the screens, make it permanent by adding `Environment` to the
-autostart entry, or by exporting `CYCLETIME_OZONE=x11` before the script runs.
-
-**2. Pin them by app-id** in the compositor. Match on the specific app-id, not
-on `chromium-browser` — that matches *both* windows and drags the dashboard onto
-the 40" along with the board. For Wayfire, in `~/.config/wayfire.ini`:
-
-```ini
-[window-rules]
-r1 = on created if app_id is "cycletime-board" then move 1280 0
-r2 = on created if app_id is "cycletime-dash" then move 0 0
-```
-
-Use *your* seam as the x for `cycletime-board` — the `logical sizes:` line the
-script prints tells you what it is. 1280 above is a rotated Touch Display 2; on
-the original 800×480 panel it is 800.
-
-Recent Raspberry Pi OS images (including Pi 5) run **labwc**, not Wayfire —
-check with `echo $XDG_CURRENT_DESKTOP`. Its window rules live inside
-`~/.config/labwc/rc.xml` (there is no separate `rules.xml`), and by default
-labwc places every new window on whatever output is currently active, ignoring
-`--window-position` entirely — the same failure mode as Wayfire above, just
-with a different fix.
-
-Matching by `identifier` (app-id) **does not work** for these windows: Chromium's
-Wayland/Ozone backend does not set the toplevel app-id from `--class` (this was
-verified on Chromium 149 / labwc 0.9.7 — `identifier="cycletime-board"` silently
-matched nothing). Match on the window **title** instead, which Chromium does set
-reliably from each page's `<title>`:
-
-```xml
-<!-- inside the existing <windowRules> block, or add one if there isn't one -->
-<windowRules>
-  <windowRule title="Cycle Time">
-    <action name="MoveTo" x="0" y="0"/>
-  </windowRule>
-  <windowRule title="Cycle Time Board">
-    <action name="MoveTo" x="1280" y="0"/>
-  </windowRule>
-</windowRules>
-```
-
-Use *your* seam as the x for "Cycle Time Board" — same value as the Wayfire
-example above. Apply with `labwc --reconfigure` (no logout needed), then kill
-and restart `kiosk.sh` so the two Chromium windows are re-created under the new
-rule — `MoveTo` only takes effect for windows mapped after the rule exists.
-See `man labwc-config` for the full `<windowRules>` syntax.
+**The fix that actually works: move the pointer, not the window.** `kiosk.sh`
+does this itself via `wlrctl pointer move` (`sudo apt install wlrctl` — the
+installer does this for you) — warping the pointer into the target output's
+bounds immediately before launching each browser, so each one's fullscreen
+request lands where intended. If `wlrctl` isn't installed, `kiosk.sh` skips the
+warp and placement is left to the compositor's default (usually wrong on a
+dual-output kiosk) — install it and the two screens separate with no further
+configuration. `CYCLETIME_OZONE=x11` still exists as a fallback for other
+compositors where this doesn't apply, but it did not fix the labwc case above.
 
 ## Try it on Windows first
 
@@ -493,7 +468,8 @@ running repeatedly against the same file, which is what happens on every deploy.
 | **Screen blanks** | `deploy/kiosk.sh` disables blanking; make sure it's in `~/.config/autostart` |
 | **"Unlock your login keyring" blocks the screens at boot** | Chromium is asking gnome-keyring for its encryption key, which autologin never unlocked. `kiosk.sh` passes `--password-store=basic` to avoid it. If a prompt still appears, clear the stored keyring: `rm -f ~/.local/share/keyrings/*.keyring` and reboot |
 | **40" stays blank / both screens show the same page** | The two Chromium instances are sharing a profile. Each needs its own `--user-data-dir` — see `deploy/kiosk.sh` |
-| **Both pages open on one screen** | The compositor ignored `--window-position`. Try `CYCLETIME_OZONE=x11 deploy/kiosk.sh`, or pin the windows by app-id (`cycletime-board` / `cycletime-dash`) — see "The two screens" above. Check `wlr-randr` positioned the outputs at all |
+| **Both pages open on one screen** | Check `wlr-randr` positioned the outputs at all first. If it did, `wlrctl` is probably missing (`sudo apt install wlrctl`) — see "The two screens" above for why that, not `--window-position`, is what actually separates them |
+| **Neither screen shows anything after a reboot, but the tracker/camera is running fine** | Two independent things to check. (1) `ls -l deploy/kiosk.sh` — if it's not `-rwxr-xr-x`, a `git pull` reset the exec bit and the autostart entry silently failed to run it (`bash deploy/install.sh` fixes this and makes it durable). (2) `kiosk.sh` waits up to 60s for `/api/health` before showing anything; some desktop sessions kill an autostart entry that takes that long to show a window, assuming it hung. The autostart entry `install.sh` writes backgrounds `kiosk.sh` with `setsid` so it returns instantly regardless — if you're running an older installed entry, re-run `bash deploy/install.sh` to pick that up |
 | **Wrong team on the board** | Check **Shifts → Pattern** preview against reality and adjust the anchor date. Past data is corrected with `/api/shifts/recompute` |
 | **Board shows "NO TEAM SCHEDULED"** | That shift is set to `—` on the calendar. Tap the day and pick a team |
 | **A team shows `—` all month** | It has recorded no cycles — check the rotation covers it, and that the camera was running on its shifts |

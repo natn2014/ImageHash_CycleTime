@@ -52,6 +52,12 @@ done
 xset s off -dpms 2>/dev/null || true
 wlr-randr 2>/dev/null | grep -q . && HAVE_RANDR=1 || HAVE_RANDR=0
 
+# wlrctl lets us warp the pointer before each launch — see warp_to() below for
+# why that, not --window-position, is what actually controls which output a
+# kiosk window lands on. Optional: `sudo apt install wlrctl`.
+command -v wlrctl >/dev/null 2>&1 && HAVE_WLRCTL=1 || HAVE_WLRCTL=0
+HAVE_POSITIONS=0
+
 # --------------------------------------------------------------- outputs
 # Report an output's LOGICAL size — the coordinate space windows are placed in,
 # which is the current mode divided by the scale, with the axes swapped on a
@@ -144,6 +150,7 @@ if [ "$HAVE_RANDR" = "1" ]; then
   # browser problem.
   if read -r dx dy < <(out_position "$DSI_OUT") \
      && read -r hx hy < <(out_position "$HDMI_OUT"); then
+    HAVE_POSITIONS=1
     echo "layout now: $DSI_OUT at ${dx},${dy}  $HDMI_OUT at ${hx},${hy}"
     if [ "$hx" -lt "$((dx + DSI_W))" ] && [ "$((hx + HDMI_W))" -gt "$dx" ]; then
       echo "!! OUTPUTS OVERLAP: $HDMI_OUT starts at x=$hx but $DSI_OUT runs to" >&2
@@ -161,24 +168,41 @@ if [ -z "$BROWSER" ]; then
   exit 1
 fi
 
-# Escape hatch for the placement problem below. Empty (the default) lets
-# Chromium pick its own backend. Setting CYCLETIME_OZONE=x11 runs both windows
-# through XWayland, where --window-position is obeyed literally and the two
-# screens separate without any compositor rule:
+# Only a fallback for browsers that ignore the pointer trick below (or when
+# wlrctl isn't installed). Empty (the default) lets Chromium pick its own
+# backend. Setting CYCLETIME_OZONE=x11 runs both windows through XWayland:
 #
 #   CYCLETIME_OZONE=x11 ~/cycletime/deploy/kiosk.sh
-#
-# Try it before writing window rules; if Chromium refuses to start with it,
-# unset it again and use the rules.
 OZONE="${CYCLETIME_OZONE:-}"
+
+# THE OTHER GOTCHA: --window-position/--window-size are hints a Wayland
+# compositor is free to ignore, and --kiosk's fullscreen request carries no
+# target output of its own. On labwc (and most wlroots compositors) a new
+# fullscreen window lands on whichever output currently has the *pointer*,
+# not whatever position was requested. Without moving the pointer first,
+# both browsers land on the same output regardless of any flag here — this
+# was confirmed on labwc 0.9.7 / Chromium 149, where neither
+# --window-position nor a labwc <windowRules> MoveTo rule had any effect on
+# a --kiosk window's output placement. Requires wlrctl (`sudo apt install
+# wlrctl`); skipped when it's missing, in which case placement is left to
+# the compositor's default (usually wrong on a dual-output kiosk).
+#
+# The double move is deliberate: wlrctl only moves the pointer *relatively*,
+# so the first move (a large negative offset) clamps it into the top-left
+# corner of the whole layout, giving the second move a known start point to
+# land the pointer inside the target output from.
+warp_to() {
+  [ "$HAVE_WLRCTL" = "1" ] || return 0
+  wlrctl pointer move -100000 -100000 >/dev/null 2>&1
+  wlrctl pointer move "$1" "$2" >/dev/null 2>&1
+}
 
 launch() {
   local url="$1" profile="$2" x="$3" y="$4" w="$5" h="$6" class="$7"
-  # --class sets the window's app_id. The two windows MUST carry different ones:
-  # under Wayland --window-position is only a hint, so placement often has to be
-  # enforced by a compositor rule, and a rule matching plain "chromium-browser"
-  # would catch both windows and drag the 7" dashboard onto the 40" with the
-  # board. See "The two screens" in the README for the rules themselves.
+  # --class sets the window's app_id under X11/XWayland (WM_CLASS). It does
+  # NOT do so under native Wayland — Chromium's Ozone/Wayland backend doesn't
+  # set the toplevel app-id from it — so don't rely on it for compositor
+  # window rules there; match on window title instead if you need that.
   #
   # --password-store=basic keeps Chromium off gnome-keyring/libsecret. The Pi
   # autologins, so PAM never unlocks the login keyring, and Chromium asking the
@@ -208,10 +232,16 @@ launch() {
 # 40" scoreboard first: it is the screen people actually look at, so it should
 # be up even if the 7" panel has a problem.
 if [ -n "$HDMI_OUT" ] || [ "$HAVE_RANDR" = "0" ]; then
+  if [ "$HAVE_POSITIONS" = "1" ]; then
+    warp_to "$((hx + HDMI_W / 2))" "$((hy + HDMI_H / 2))"
+  fi
   launch "$BOARD_URL" cycletime-hdmi "$DSI_W" 0 "$HDMI_W" "$HDMI_H" cycletime-board
   sleep 3
 fi
 
+if [ "$HAVE_POSITIONS" = "1" ]; then
+  warp_to "$((dx + DSI_W / 2))" "$((dy + DSI_H / 2))"
+fi
 launch "$DASH_URL" cycletime-dsi 0 0 "$DSI_W" "$DSI_H" cycletime-dash
 
 # Keep this script alive so the desktop session treats it as the running app;

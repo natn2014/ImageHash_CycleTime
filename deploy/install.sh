@@ -61,11 +61,18 @@ sudo apt-get update -qq
 # wlr-randr          REQUIRED for dual display: kiosk.sh uses it to place the
 #                    7" DSI and the 40" HDMI side by side. Without it both
 #                    browser windows pile onto one screen.
+# wlrctl             REQUIRED for dual display, same reason as wlr-randr but
+#                    for a different bug: --kiosk's fullscreen request has no
+#                    target output of its own, so the compositor puts a new
+#                    kiosk window on whichever output currently has the
+#                    pointer. kiosk.sh warps the pointer with this before each
+#                    launch; without it, both windows still land on one
+#                    output even though wlr-randr laid them out correctly.
 # x11-xserver-utils  provides xset, used to stop blanking on an X session
 sudo apt-get install -y -qq \
   git python3-venv python3-dev v4l-utils curl \
   libgl1 libglib2.0-0 \
-  wlr-randr x11-xserver-utils
+  wlr-randr wlrctl x11-xserver-utils
 sudo apt-get install -y -qq chromium-browser 2>/dev/null \
   || sudo apt-get install -y -qq chromium
 
@@ -164,19 +171,30 @@ sudo raspi-config nonint do_blanking 1 2>/dev/null \
 # The desktop session starts the browsers, not systemd: they need a display,
 # which systemd's multi-user target knows nothing about.
 #
-# Exec runs kiosk.sh through /bin/bash rather than invoking it directly: a
-# .desktop launcher execs the Exec= target as-is, with no shell in between, so
-# it needs the +x bit set on kiosk.sh itself. `git pull` resets file mode to
-# whatever's tracked (644 - git doesn't track the exec bit this repo relies
-# on), silently dropping it again on every update. Routing through bash means
-# a lost +x bit is cosmetic, not a boot-time failure with no error anywhere.
+# Exec runs kiosk.sh through setsid+bash, backgrounded, rather than invoking
+# it directly, for two independent reasons:
+#
+# 1. A .desktop launcher execs the Exec= target as-is, with no shell in
+#    between, so it needs the +x bit set on kiosk.sh itself. `git pull`
+#    resets file mode to whatever's tracked (644 - git doesn't track the
+#    exec bit this repo relies on), silently dropping it again on every
+#    update. Routing through bash means a lost +x bit is cosmetic, not a
+#    boot-time failure with no error anywhere.
+#
+# 2. kiosk.sh blocks for up to 60s waiting on the tracker's /api/health before
+#    it does anything visible (see kiosk.sh) - the tracker can plausibly take
+#    that long to come up on a cold boot. Autostart launchers commonly kill
+#    an entry that hasn't shown a window within some short timeout, on the
+#    assumption it's hung; backgrounding with setsid makes the Exec= command
+#    itself return in milliseconds regardless of how long kiosk.sh's own
+#    wait takes, so it can't be mistaken for a hung launch.
 AUTOSTART_DIR="$USER_HOME/.config/autostart"
 mkdir -p "$AUTOSTART_DIR"
 cat > "$AUTOSTART_DIR/cycletime-kiosk.desktop" <<DESKTOP
 [Desktop Entry]
 Type=Application
 Name=Cycle Time Screens
-Exec=/bin/bash $PROJECT_DIR/deploy/kiosk.sh
+Exec=/bin/bash -c 'setsid /bin/bash $PROJECT_DIR/deploy/kiosk.sh </dev/null &>"\$HOME/.cache/cycletime-kiosk.log" &'
 X-GNOME-Autostart-enabled=true
 DESKTOP
 # If this ran under sudo the file is owned by root and the session may skip it.
