@@ -170,10 +170,36 @@ Use *your* seam as the x for `cycletime-board` — the `logical sizes:` line the
 script prints tells you what it is. 1280 above is a rotated Touch Display 2; on
 the original 800×480 panel it is 800.
 
-Recent Raspberry Pi OS images run **labwc**, not Wayfire — check with
-`echo $XDG_CURRENT_DESKTOP`. Labwc has its own rule syntax in
-`~/.config/labwc/rules.xml`, matched by `identifier` against the same two
-app-ids; see `man labwc-config` for the exact element names on your version.
+Recent Raspberry Pi OS images (including Pi 5) run **labwc**, not Wayfire —
+check with `echo $XDG_CURRENT_DESKTOP`. Its window rules live inside
+`~/.config/labwc/rc.xml` (there is no separate `rules.xml`), and by default
+labwc places every new window on whatever output is currently active, ignoring
+`--window-position` entirely — the same failure mode as Wayfire above, just
+with a different fix.
+
+Matching by `identifier` (app-id) **does not work** for these windows: Chromium's
+Wayland/Ozone backend does not set the toplevel app-id from `--class` (this was
+verified on Chromium 149 / labwc 0.9.7 — `identifier="cycletime-board"` silently
+matched nothing). Match on the window **title** instead, which Chromium does set
+reliably from each page's `<title>`:
+
+```xml
+<!-- inside the existing <windowRules> block, or add one if there isn't one -->
+<windowRules>
+  <windowRule title="Cycle Time">
+    <action name="MoveTo" x="0" y="0"/>
+  </windowRule>
+  <windowRule title="Cycle Time Board">
+    <action name="MoveTo" x="1280" y="0"/>
+  </windowRule>
+</windowRules>
+```
+
+Use *your* seam as the x for "Cycle Time Board" — same value as the Wayfire
+example above. Apply with `labwc --reconfigure` (no logout needed), then kill
+and restart `kiosk.sh` so the two Chromium windows are re-created under the new
+rule — `MoveTo` only takes effect for windows mapped after the rule exists.
+See `man labwc-config` for the full `<windowRules>` syntax.
 
 ## Try it on Windows first
 

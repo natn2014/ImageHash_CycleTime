@@ -163,13 +163,20 @@ sudo raspi-config nonint do_blanking 1 2>/dev/null \
 
 # The desktop session starts the browsers, not systemd: they need a display,
 # which systemd's multi-user target knows nothing about.
+#
+# Exec runs kiosk.sh through /bin/bash rather than invoking it directly: a
+# .desktop launcher execs the Exec= target as-is, with no shell in between, so
+# it needs the +x bit set on kiosk.sh itself. `git pull` resets file mode to
+# whatever's tracked (644 - git doesn't track the exec bit this repo relies
+# on), silently dropping it again on every update. Routing through bash means
+# a lost +x bit is cosmetic, not a boot-time failure with no error anywhere.
 AUTOSTART_DIR="$USER_HOME/.config/autostart"
 mkdir -p "$AUTOSTART_DIR"
 cat > "$AUTOSTART_DIR/cycletime-kiosk.desktop" <<DESKTOP
 [Desktop Entry]
 Type=Application
 Name=Cycle Time Screens
-Exec=$PROJECT_DIR/deploy/kiosk.sh
+Exec=/bin/bash $PROJECT_DIR/deploy/kiosk.sh
 X-GNOME-Autostart-enabled=true
 DESKTOP
 # If this ran under sudo the file is owned by root and the session may skip it.
