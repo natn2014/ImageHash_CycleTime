@@ -76,12 +76,19 @@ fi
 
 launch() {
   local url="$1" profile="$2" x="$3" y="$4" w="$5" h="$6"
+  # --password-store=basic keeps Chromium off gnome-keyring/libsecret. The Pi
+  # autologins, so PAM never unlocks the login keyring, and Chromium asking the
+  # secret service for its encryption key pops an "unlock your login keyring"
+  # dialog over the kiosk that nobody on the line can dismiss. Basic keeps the
+  # key in the profile instead — no prompt, and nothing here stores passwords.
   "$BROWSER" \
     --kiosk \
     --app="$url" \
     --user-data-dir="$HOME/.config/$profile" \
     --window-position="$x,$y" \
     --window-size="$w,$h" \
+    --password-store=basic \
+    --no-first-run \
     --noerrdialogs \
     --disable-infobars \
     --disable-session-crashed-bubble \

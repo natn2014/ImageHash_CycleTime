@@ -52,6 +52,9 @@ fi
 # ---------------------------------------------------------------- system deps
 echo "==> System packages"
 sudo apt-get update -qq
+# git                present on the Desktop image, absent on Lite. Installed
+#                    here so the update path this script prints at the end
+#                    ("git pull") is guaranteed to work.
 # python3-venv       the virtualenv
 # v4l-utils          inspect what the webcam actually offers
 # libgl1/libglib2.0-0 OpenCV runtime shared libs, needed even by the headless build
@@ -60,7 +63,7 @@ sudo apt-get update -qq
 #                    browser windows pile onto one screen.
 # x11-xserver-utils  provides xset, used to stop blanking on an X session
 sudo apt-get install -y -qq \
-  python3-venv python3-dev v4l-utils curl \
+  git python3-venv python3-dev v4l-utils curl \
   libgl1 libglib2.0-0 \
   wlr-randr x11-xserver-utils
 sudo apt-get install -y -qq chromium-browser 2>/dev/null \

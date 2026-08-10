@@ -37,10 +37,19 @@ No PLC, no sensors, no wiring into the machine.
 
 ## Install on the Pi
 
-Raspberry Pi OS **Bookworm** (64-bit, Desktop) on a Pi 5. Run as the normal
-desktop user — **not** with `sudo`; the script escalates only where it needs to.
+Raspberry Pi OS **Bookworm** (64-bit, **Desktop**) on a Pi 5. The Desktop image
+is required — the two kiosk browsers need a desktop session, which the Lite
+image has no way to provide.
+
+Run as the normal desktop user — **not** with `sudo`; the script escalates only
+where it needs to.
 
 ```bash
+# git ships with the Desktop image, so this is normally a no-op. Harmless
+# either way, and it saves a confusing "git: command not found" if this Pi
+# was flashed with the Lite image.
+sudo apt update && sudo apt install -y git
+
 git clone https://github.com/natn2014/ImageHash_CycleTime.git ~/cycletime
 cd ~/cycletime
 bash deploy/install.sh
@@ -414,6 +423,7 @@ running repeatedly against the same file, which is what happens on every deploy.
 | **Chart is empty but cycles log** | All gaps are being flagged as stoppages — raise `cycle.max_valid_s` |
 | **Camera runs slow** | Confirm MJPG: `v4l2-ctl --list-formats-ext` |
 | **Screen blanks** | `deploy/kiosk.sh` disables blanking; make sure it's in `~/.config/autostart` |
+| **"Unlock your login keyring" blocks the screens at boot** | Chromium is asking gnome-keyring for its encryption key, which autologin never unlocked. `kiosk.sh` passes `--password-store=basic` to avoid it. If a prompt still appears, clear the stored keyring: `rm -f ~/.local/share/keyrings/*.keyring` and reboot |
 | **40" stays blank / both screens show the same page** | The two Chromium instances are sharing a profile. Each needs its own `--user-data-dir` — see `deploy/kiosk.sh` |
 | **Both pages open on one screen** | `wlr-randr` didn't position the outputs. Run it to see the detected names, then use the `wayfire.ini` window rule above |
 | **Wrong team on the board** | Check **Shifts → Pattern** preview against reality and adjust the anchor date. Past data is corrected with `/api/shifts/recompute` |
