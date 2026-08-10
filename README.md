@@ -37,26 +37,67 @@ No PLC, no sensors, no wiring into the machine.
 
 ## Install on the Pi
 
+Raspberry Pi OS **Bookworm** (64-bit, Desktop) on a Pi 5. Run as the normal
+desktop user — **not** with `sudo`; the script escalates only where it needs to.
+
 ```bash
-git clone <this repo> ~/cycletime
+git clone https://github.com/natn2014/ImageHash_CycleTime.git ~/cycletime
 cd ~/cycletime
 bash deploy/install.sh
 ```
 
-That creates the virtualenv, installs dependencies, registers a systemd service
-that starts at boot, and sets Chromium to open both screens fullscreen at login.
+The installer sets the timezone, installs dependencies, creates the virtualenv,
+verifies the OpenCV stack actually imports, registers a systemd service that
+starts at boot, and configures both screens to come up at login. It prints the
+cameras and displays it found so you can confirm the hardware is seen.
+
+Allow 5–15 minutes — the OpenCV wheel is large on a Pi.
+
 Then:
 
-1. Open **http://localhost:8000/setup**
-2. Drag a box across the belt where product passes
-3. Press **Save ROI**
-4. Open **Shifts → Pattern** and set your shift times and rotation
-5. Go back to the dashboard and let product run
+1. Open **http://localhost:8000/setup** → drag a box across the belt → **Save ROI**
+2. Open **http://localhost:8000/shifts** → **Pattern** → adjust the anchor date
+   until **Next 14 days** matches the real roster
+3. Let product run, and check the numbers against a stopwatch
 
 ```bash
 journalctl -fu cycletime      # watch cycles being detected
 sudo systemctl restart cycletime
+timedatectl                   # must show your local timezone, not UTC
 ```
+
+### Timezone — read this one
+
+**The shift roster runs entirely on local time.** Which team gets credit for a
+cycle, and which production day it belongs to, both come from the Pi's wall
+clock. A Pi left on UTC files every cycle against the wrong shift — 7 hours out
+in Thailand — and nothing on screen looks broken until someone checks the
+numbers.
+
+The installer sets `Asia/Bangkok` automatically. Elsewhere:
+
+```bash
+CYCLETIME_TZ=Asia/Singapore bash deploy/install.sh
+```
+
+A Pi has no battery-backed clock, so it boots at epoch until NTP syncs. On a
+line with no network, fit an RTC module or expect the first few minutes after a
+power cut to be mis-dated.
+
+### Updating
+
+`install.sh` is idempotent, so it is also the update path:
+
+```bash
+cd ~/cycletime && git pull && bash deploy/install.sh
+```
+
+`config.json` and `data/cycles.db` are **not tracked by git**, so your ROI,
+shift roster and recorded history all survive an update untouched.
+
+`config.example.json` is the tracked template. The installer copies it to
+`config.json` on a fresh install and never overwrites an existing one — this is
+why a tuned line can be updated without being re-tuned.
 
 ### The two screens
 

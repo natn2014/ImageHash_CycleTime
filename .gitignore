@@ -11,7 +11,12 @@ __pycache__/
 *.egg-info/
 .pytest_cache/
 
-# Local overrides and test artifacts
+# The live config is machine-specific and the app WRITES to it at runtime —
+# the Setup page saves the ROI, the Shifts tab saves the roster. Tracking it
+# would make `git pull` collide with the operator's own settings on every
+# update. config.example.json is the tracked template; install.sh copies it
+# to config.json on a fresh install and never overwrites an existing one.
+config.json
 config.local.json
 config.json.tmp
 tests/fixture.mp4
