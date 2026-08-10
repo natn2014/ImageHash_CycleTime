@@ -72,6 +72,14 @@ out_logical_size() {
     }'
 }
 
+# Report where an output currently sits in the layout. Echoes "X Y".
+out_position() {
+  wlr-randr 2>/dev/null | awk -v want="$1" '
+    /^[A-Za-z]/ { inblk = ($1 == want); next }
+    !inblk      { next }
+    /Position:/ { split($2, p, ","); print p[1], p[2]; exit }'
+}
+
 # Names are detected rather than hard-coded: DSI enumerates variously as
 # DSI-1 or DSI-2 depending on kernel and overlay.
 DSI_OUT=""
@@ -99,11 +107,35 @@ if [ "$HAVE_RANDR" = "1" ]; then
 
   # Lay the two outputs side by side so a window's x-position selects which
   # screen it lands on: the DSI occupies 0..DSI_W-1, the HDMI starts at DSI_W.
+  #
+  # Errors are printed, not swallowed. A refused --pos is the difference between
+  # two clean screens and two screens sharing coordinates, and silence here sent
+  # us looking at the browsers when the fault was one layer down.
   if [ -n "$DSI_OUT" ]; then
-    wlr-randr --output "$DSI_OUT" --on --pos 0,0 2>/dev/null || true
+    wlr-randr --output "$DSI_OUT" --on --pos 0,0 \
+      || echo "!! could not position $DSI_OUT" >&2
   fi
   if [ -n "$HDMI_OUT" ]; then
-    wlr-randr --output "$HDMI_OUT" --on --pos "${DSI_W},0" 2>/dev/null || true
+    wlr-randr --output "$HDMI_OUT" --on --pos "${DSI_W},0" \
+      || echo "!! could not position $HDMI_OUT" >&2
+  fi
+
+  # Read the layout back. The compositor is free to ignore the request above —
+  # and on Raspberry Pi OS a saved screen configuration (Control Centre ->
+  # Screens, restored by kanshi or wayfire.ini) can re-apply itself and put the
+  # outputs back on top of each other. Overlapping outputs cannot be fixed by
+  # any window placement, so say so plainly rather than letting it look like a
+  # browser problem.
+  if read -r dx dy < <(out_position "$DSI_OUT") \
+     && read -r hx hy < <(out_position "$HDMI_OUT"); then
+    echo "layout now: $DSI_OUT at ${dx},${dy}  $HDMI_OUT at ${hx},${hy}"
+    if [ "$hx" -lt "$((dx + DSI_W))" ] && [ "$((hx + HDMI_W))" -gt "$dx" ]; then
+      echo "!! OUTPUTS OVERLAP: $HDMI_OUT starts at x=$hx but $DSI_OUT runs to" >&2
+      echo "   x=$((dx + DSI_W - 1)). The two screens share coordinates, so the" >&2
+      echo "   windows cannot be separated until this is fixed." >&2
+      echo "   Fix it in Control Centre -> Screens: drag the HDMI clear of the" >&2
+      echo "   DSI and press Apply. That layout is saved and survives reboot." >&2
+    fi
   fi
 fi
 
