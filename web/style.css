@@ -315,6 +315,10 @@ td.stop { color: var(--warning); }
 
 .field { display: flex; flex-direction: column; gap: 3px; }
 .field label { font-size: 10px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.05em; }
+/* Match the meter-mark colors above so each label reads as the same signal
+ * as its tick on the occupancy meter, not just adjacent text. */
+.field label.label-enter { color: var(--critical); }
+.field label.label-exit { color: var(--warning); }
 .field input {
   font-family: var(--font);
   font-size: 12px;
