@@ -12,7 +12,7 @@ import logging
 import threading
 import time
 from dataclasses import replace
-from datetime import date, datetime
+from datetime import date, datetime, timezone
 
 from . import config as config_mod
 from .camera import CaptureThread
@@ -66,6 +66,11 @@ class Tracker:
         self._last_prune = 0.0
         self.started_at_iso = utcnow_iso()
         self.last_cycle: dict | None = None
+        # When the last product was detected, on the monotonic clock, so the
+        # board can run a stopwatch for the cycle in progress. Monotonic and not
+        # wall time: this Pi has no RTC and steps its clock by whatever NTP says
+        # once the network is up, which would otherwise jump the counter.
+        self.last_edge_mono: float | None = None
 
     # ---------------------------------------------------------------- roster
 
@@ -179,6 +184,10 @@ class Tracker:
         no interval to record - it only establishes the reference point for the
         next one.
         """
+        # Before the early return: the first product starts no interval but it
+        # does start the *next* one, which is what the live stopwatch counts.
+        self.last_edge_mono = time.monotonic()
+
         if event.cycle_s is None:
             log.info("first product detected; timing starts from here")
             return
@@ -257,6 +266,31 @@ class Tracker:
             "work_date": a.work_date, "slot_start": a.slot_start,
         }
 
+    def _since_last_edge(self) -> float | None:
+        """Seconds since the last detection, or None if there has not been one.
+
+        Prefers the monotonic edge recorded by the detector thread. After a
+        restart that is gone while the cycles themselves are still on disk, so
+        it falls back to the stored timestamp — less precise, and only as good
+        as the clock, but it beats a board that counts from zero every deploy.
+        """
+        if self.last_edge_mono is not None:
+            return round(time.monotonic() - self.last_edge_mono, 3)
+
+        last = self.last_cycle
+        if last is None:
+            recent = self.store.recent(1)
+            last = recent[0] if recent else None
+        if not last or not last.get("ts_utc"):
+            return None
+        try:
+            then = datetime.fromisoformat(last["ts_utc"])
+        except ValueError:
+            return None
+        if then.tzinfo is None:
+            then = then.replace(tzinfo=timezone.utc)
+        return round(max(0.0, (datetime.now(timezone.utc) - then).total_seconds()), 3)
+
     def board(self) -> dict:
         """Everything the 40" scoreboard renders, in one payload.
 
@@ -312,6 +346,11 @@ class Tracker:
                 "target_s": target,
                 "diff_s": None if live_s is None else round(live_s - target, 2),
                 "tolerance_s": self.cfg.cycle.diff_tolerance_s,
+                # Seconds since the last product passed. The board counts on
+                # from this locally at 10 Hz; sending it on every poll is what
+                # re-anchors that counter, so a reloaded page or a missed SSE
+                # event cannot leave it drifting.
+                "since_s": self._since_last_edge(),
             },
             "teams": teams,
             "day": ranked(shift.work_date, shift.work_date),

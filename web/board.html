@@ -14,6 +14,14 @@
 
   <section class="live" id="live">
     <span id="liveText">WAITING FOR PRODUCT</span>
+    <!-- Stopwatch for the cycle in progress: resets to zero as each product
+         passes and counts up until the next one. Deliberately smaller and
+         labelled — beside a number this size, an unlabelled second number
+         would be read as the cycle time. -->
+    <span class="live-since" id="liveSince" hidden>
+      <span class="live-since-label">THIS CYCLE</span>
+      <span class="live-since-val" id="liveSinceVal">0.0</span>
+    </span>
   </section>
 
   <section class="diff" id="diff">

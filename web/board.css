@@ -83,6 +83,35 @@ html, body {
 
 .live-unit { font-size: 7vh; font-weight: 700; }
 
+/* Stopwatch for the cycle in progress, sat beside the last completed time.
+ * Two numbers on one bar is the risk here, so this one is half the height,
+ * boxed, and captioned — it reads as a second fact, not a second cycle time. */
+.live-since {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  line-height: 1;
+  padding: 0.8vh 1.2vw;
+  border-radius: 1vh;
+  background: rgba(0, 0, 0, 0.22);
+}
+
+.live-since-label {
+  font-size: 1.8vh;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  color: var(--ink-dim);
+}
+
+/* Tabular figures: this one redraws ten times a second, and proportional
+ * digits would make the whole box twitch on every tick. */
+.live-since-val {
+  font-size: 6.5vh;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+  margin-top: 0.6vh;
+}
+
 /* Dimmed while no team is scheduled or no cycle has arrived yet, so a stale
  * number is never mistaken for a live one. */
 .live.idle { background: var(--blue-deep); color: var(--ink-dim); }

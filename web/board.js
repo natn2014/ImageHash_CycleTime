@@ -15,12 +15,42 @@
 const $ = (id) => document.getElementById(id);
 
 const AGGREGATE_MS = 30000;   // day/week/month refresh
+// Stopwatch for the cycle in progress. Ticking at 10 Hz keeps the tenths
+// moving, which is what makes the board look alive between products; set
+// SINCE_DP to 0 for a whole-second counter instead.
+const SINCE_TICK_MS = 100;
+const SINCE_DP = 1;
 // Two missed refreshes before the board admits it is stale. A frozen number
 // that is silently believed is worse than an obvious "NO DATA".
 const STALE_MS = AGGREGATE_MS * 2 + 5000;
 
 let lastOk = Date.now();
 let teams = [];
+
+/* --------------------------------------------------------- live stopwatch */
+
+// performance.now() at the moment the running cycle started. Monotonic, so a
+// clock step on this Pi cannot send the counter backwards mid-shift; null
+// means nothing has ever been detected and there is nothing to count.
+let sinceRef = null;
+
+function syncSince(sinceS) {
+  sinceRef = sinceS === null || sinceS === undefined
+    ? null
+    : performance.now() - sinceS * 1000;
+  drawSince();
+}
+
+function drawSince() {
+  const el = $('liveSince');
+  if (sinceRef === null) {
+    el.hidden = true;
+    return;
+  }
+  el.hidden = false;
+  const elapsed = Math.max(0, (performance.now() - sinceRef) / 1000);
+  $('liveSinceVal').textContent = elapsed.toFixed(SINCE_DP);
+}
 
 const fmt = (v, d = 1) => (v === null || v === undefined ? '—' : Number(v).toFixed(d));
 
@@ -53,6 +83,10 @@ function renderLive(data) {
       `TEAM ${shift.team}: ${fmt(live.cycle_s)}<span class="live-unit"> sec</span>`;
     el.classList.remove('idle');
   }
+
+  // Re-anchor the stopwatch on every poll rather than trusting it to have
+  // free-run correctly since the last one.
+  syncSince(live.since_s);
 
   $('targetVal').textContent = `${fmt(live.target_s)} sec`;
 
@@ -158,7 +192,12 @@ function connectEvents() {
       // A new cycle changes the live number and today's average, so the whole
       // payload is refetched rather than patched — it is one small request at
       // a 5-30 s cadence, and it keeps every panel mutually consistent.
-      if (JSON.parse(ev.data).type === 'cycle') refresh();
+      if (JSON.parse(ev.data).type !== 'cycle') return;
+      // Zero the stopwatch on the event itself, not on the response: the
+      // product has already passed, and waiting a round trip to show it would
+      // leave the counter visibly overshooting on every cycle.
+      syncSince(0);
+      refresh();
     } catch (_) { /* keepalive comments never parse */ }
   };
   es.onerror = () => { /* EventSource reconnects itself; the timer covers us */ };
@@ -169,6 +208,7 @@ function connectEvents() {
 refresh();
 connectEvents();
 setInterval(refresh, AGGREGATE_MS);
+setInterval(drawSince, SINCE_TICK_MS);
 
 // The date panel must roll over at midnight even on a line that has stopped
 // and is sending no events.
