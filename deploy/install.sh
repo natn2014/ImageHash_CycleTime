@@ -181,9 +181,11 @@ sudo raspi-config nonint do_blanking 1 2>/dev/null \
 #    update. Routing through bash means a lost +x bit is cosmetic, not a
 #    boot-time failure with no error anywhere.
 #
-# 2. kiosk.sh blocks for up to 60s waiting on the tracker's /api/health before
-#    it does anything visible (see kiosk.sh) - the tracker can plausibly take
-#    that long to come up on a cold boot. Autostart launchers commonly kill
+# 2. kiosk.sh deliberately blocks for a long time before it does anything
+#    visible - it waits for the tracker's port to answer (up to 10 min; this
+#    service was measured binding 95s after power-on, because the desktop
+#    session starts well before multi-user.target finishes), then for the
+#    camera to warm up, then a settle delay. Autostart launchers commonly kill
 #    an entry that hasn't shown a window within some short timeout, on the
 #    assumption it's hung; backgrounding with setsid makes the Exec= command
 #    itself return in milliseconds regardless of how long kiosk.sh's own

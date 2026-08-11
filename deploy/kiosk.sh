@@ -16,6 +16,17 @@ BASE="http://localhost:8000"
 DASH_URL="$BASE/"
 BOARD_URL="$BASE/board"
 
+# Chromium derives a toplevel app_id from the --app= URL, and these are the
+# values it produces for the two URLs above — used by wait_for_window() to tell
+# the windows apart. Confirmed with `wlrctl toplevel list` on Chromium 149:
+#
+#   chrome-localhost__board-Default: Cycle Time Board
+#   chrome-localhost__-Default: Cycle Time
+#
+# Re-check with that command if a Chromium update ever changes the scheme.
+DASH_APP_ID="chrome-localhost__-Default"
+BOARD_APP_ID="chrome-localhost__board-Default"
+
 # Fallbacks only. The real sizes are read off the compositor below when
 # wlr-randr is available — assuming 800 wide is what makes the two windows
 # overlap on a panel that is not the original 7" 800x480.
@@ -30,12 +41,73 @@ DSI_H=720
 HDMI_W=1920
 HDMI_H=1080
 
-# The tracker owns the camera and the database; give it a moment to bind the
-# port so the first paint isn't a connection-refused page.
-for _ in $(seq 1 60); do
-  if curl -sf -o /dev/null "$BASE/api/health"; then break; fi
-  sleep 1
+# ------------------------------------------------------------ wait for ready
+# THE GOTCHA THAT PUT "localhost refused to connect" ON THE WALL: a Chromium
+# error page is a DEAD END. There is no JS on net::ERR_CONNECTION_REFUSED to
+# retry the load, and --kiosk hides the reload button, so one early launch
+# leaves both screens showing an error until somebody finds a keyboard. Opening
+# late costs nothing; opening early costs the whole shift. So every gate below
+# errs towards waiting.
+#
+# Why the old 60s budget was not enough, measured on this Pi:
+#
+#   08:39:04  power on
+#   08:40:23  kiosk.sh ran out of budget and launched Chromium
+#   08:40:37  systemd started cycletime.service
+#   08:40:39  uvicorn bound :8000          <-- 95s after boot, 16s TOO LATE
+#
+# The desktop session (and therefore this script) starts long before
+# multi-user.target finishes bringing up the tracker, so the wait has to
+# outlast the whole rest of boot, not just a few seconds of Python startup.
+
+# Gate 1, the hard one: the port must answer before a browser may open.
+#
+# Polled against "/" rather than /api/health because health is CAMERA-gated —
+# it returns 503 until the capture thread opens /dev/video0, and forever if the
+# camera is unplugged. That is the wrong question here: "/" answers 200 as soon
+# as uvicorn is listening, which is exactly when a page can load.
+READY_TIMEOUT="${CYCLETIME_READY_TIMEOUT:-600}"
+waited=0
+until curl -sf -o /dev/null --max-time 2 "$BASE/"; do
+  if [ "$waited" -ge "$READY_TIMEOUT" ]; then
+    echo "!! $BASE not answering after ${waited}s — opening anyway, expect an" >&2
+    echo "   error page. Check: systemctl status cycletime" >&2
+    break
+  fi
+  sleep 2
+  waited=$((waited + 2))
 done
+# Say which of the two outcomes happened, and ask the port rather than inferring
+# it from the counter — the loop can also exit on a success that lands in the
+# same round as the timeout. "tracker answering" printed after a timeout would
+# send the next person debugging this to the browsers instead of the service,
+# which is the wrong layer.
+if curl -sf -o /dev/null --max-time 2 "$BASE/"; then
+  echo "tracker answering after ${waited}s"
+fi
+
+# Gate 2, the soft one: wait for the camera and tracker to finish warming up so
+# the first paint has real numbers on it instead of dashes. Bounded, and we
+# carry on when it expires — a dead camera must still leave a readable board
+# rather than two blank screens.
+HEALTH_TIMEOUT="${CYCLETIME_HEALTH_TIMEOUT:-120}"
+waited=0
+until curl -sf -o /dev/null --max-time 2 "$BASE/api/health"; do
+  if [ "$waited" -ge "$HEALTH_TIMEOUT" ]; then
+    echo "!! /api/health still not ok after ${waited}s (camera not opening?) —" >&2
+    echo "   opening the screens anyway. Check: journalctl -u cycletime" >&2
+    break
+  fi
+  sleep 2
+  waited=$((waited + 2))
+done
+
+# Final settle. The two gates above already prove the app is up and warm, so
+# this is pure margin for the first data poll to land; lower it if you want the
+# screens up sooner:  CYCLETIME_SETTLE=10 deploy/kiosk.sh
+SETTLE="${CYCLETIME_SETTLE:-60}"
+echo "app ready; settling ${SETTLE}s before opening the screens"
+sleep "$SETTLE"
 
 # Clear the crash flags, or Chromium shows a "didn't shut down correctly"
 # infobar over the display after every power cut — which on a factory line is
@@ -197,6 +269,45 @@ warp_to() {
   wlrctl pointer move "$1" "$2" >/dev/null 2>&1
 }
 
+# THE RACE THAT PUT BOTH PAGES ON THE 7" PANEL: the pointer decides which
+# output a --kiosk window lands on, and the compositor reads it when the window
+# is MAPPED — not when Chromium is exec'd. The two events are far apart. A cold
+# Chromium on a Pi 5 that is still finishing boot, with the tracker warming up
+# on the same CPU, can take much longer than the 3s this code used to sleep
+# before its window appears. The sequence that failed was:
+#
+#   warp to HDMI -> exec board -> sleep 3 -> warp to DSI -> exec dashboard
+#                                                  ^
+#            board window still had not mapped, so when it finally did, the
+#            pointer was already on the DSI and BOTH windows went there.
+#
+# So wait for the window to actually exist rather than guessing at a sleep.
+# The app_id to match is set by Chromium from the --app= URL (NOT from --class,
+# which native Wayland ignores); read the live values with `wlrctl toplevel
+# list`, which prints "app_id: title" per window.
+wait_for_window() {
+  local app_id="$1" timeout="${2:-90}" waited=0
+  # No wlrctl means no way to observe the map, and also no warp to race with —
+  # a fixed sleep is all that is left, but make it a realistic one.
+  if [ "$HAVE_WLRCTL" != "1" ]; then
+    sleep 15
+    return 0
+  fi
+  until wlrctl toplevel list 2>/dev/null | grep -q "^$app_id:"; do
+    if [ "$waited" -ge "$timeout" ]; then
+      echo "!! window '$app_id' never appeared after ${waited}s; placement of" >&2
+      echo "   the next window may be wrong. Check: wlrctl toplevel list" >&2
+      return 1
+    fi
+    sleep 1
+    waited=$((waited + 1))
+  done
+  # Mapped, but the fullscreen surface can still be settling onto the output;
+  # warping the pointer out from under it too early re-creates the race.
+  sleep 2
+  echo "window '$app_id' mapped after ${waited}s"
+}
+
 launch() {
   local url="$1" profile="$2" x="$3" y="$4" w="$5" h="$6" class="$7"
   # --class sets the window's app_id under X11/XWayland (WM_CLASS). It does
@@ -236,13 +347,18 @@ if [ -n "$HDMI_OUT" ] || [ "$HAVE_RANDR" = "0" ]; then
     warp_to "$((hx + HDMI_W / 2))" "$((hy + HDMI_H / 2))"
   fi
   launch "$BOARD_URL" cycletime-hdmi "$DSI_W" 0 "$HDMI_W" "$HDMI_H" cycletime-board
-  sleep 3
+  # Must not warp the pointer away until this window has actually landed on the
+  # HDMI — see wait_for_window(). This is what keeps both pages off the 7".
+  wait_for_window "$BOARD_APP_ID" 90 || true
 fi
 
 if [ "$HAVE_POSITIONS" = "1" ]; then
   warp_to "$((dx + DSI_W / 2))" "$((dy + DSI_H / 2))"
 fi
 launch "$DASH_URL" cycletime-dsi 0 0 "$DSI_W" "$DSI_H" cycletime-dash
+# Not to gate anything — nothing launches after this — but so the log says
+# whether the 7" panel's window ever appeared.
+wait_for_window "$DASH_APP_ID" 90 || true
 
 # Keep this script alive so the desktop session treats it as the running app;
 # killing it takes both browsers down together.
