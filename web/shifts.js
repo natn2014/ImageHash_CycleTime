@@ -172,15 +172,82 @@ $('nextMonth').addEventListener('click', () => {
 
 /* ------------------------------------------------------------- pattern */
 
+/* The letters offered for a rota. Six is plenty — the server only ever keeps
+ * one team per shift — and they fit one row on a 300px panel. Names already in
+ * the config are added to the pool so a site using its own labels can still
+ * reorder them without losing them. */
+const TEAM_LETTERS = ['A', 'B', 'C', 'D', 'E', 'F'];
+
+let patternTeams = [];   // the sequence being edited, one entry per shift
+let teamSel = 0;         // box the next tapped letter fills
+
+function setPatternTeams(list) {
+  patternTeams = starts.map((_, i) => list[i]);
+  // A short or duplicated list can only come from a hand-edited config; fill it
+  // out here rather than letting the picker start in a state it cannot express.
+  patternTeams.forEach((t, i) => {
+    if (!t || patternTeams.indexOf(t) !== i) {
+      patternTeams[i] = TEAM_LETTERS.find((l) => !patternTeams.includes(l));
+    }
+  });
+  teamSel = 0;
+  renderTeams();
+}
+
+function renderTeams() {
+  const times = ['s0', 's1', 's2'].map((id) => $(id).value);
+
+  $('teamSeq').innerHTML = patternTeams.map((t, i) => `
+    <button type="button" class="team-slot${i === teamSel ? ' sel' : ''}" data-slot="${i}">
+      <span class="team-slot-time">${times[i] || `Shift ${i + 1}`}</span>
+      <span class="team-slot-name">${t || '–'}</span>
+    </button>`).join('');
+
+  const pool = [...new Set([...TEAM_LETTERS, ...patternTeams.filter(Boolean)])];
+  $('teamPool').innerHTML = pool.map((label) => {
+    const at = patternTeams.indexOf(label);
+    // The shift number on an in-use letter says *where* it sits, so the pool is
+    // readable without comparing fills by colour.
+    const badge = at === -1 ? '' : `<span class="team-key-n">${at + 1}</span>`;
+    return `<button type="button" class="team-key${at === -1 ? '' : ' used'}"
+      data-team="${label}">${label}${badge}</button>`;
+  }).join('');
+
+  $('teamSeq').querySelectorAll('.team-slot').forEach((el) => {
+    el.addEventListener('click', () => { teamSel = Number(el.dataset.slot); renderTeams(); });
+  });
+  $('teamPool').querySelectorAll('.team-key').forEach((el) => {
+    el.addEventListener('click', () => pickTeam(el.dataset.team));
+  });
+}
+
+function pickTeam(label) {
+  const at = patternTeams.indexOf(label);
+  if (at !== teamSel) {
+    // Swapping rather than overwriting keeps every shift staffed by a distinct
+    // team, which is the only shape the server accepts.
+    if (at !== -1) patternTeams[at] = patternTeams[teamSel];
+    patternTeams[teamSel] = label;
+  }
+  teamSel = (teamSel + 1) % patternTeams.length;
+  renderTeams();
+}
+
 async function loadPattern() {
   const c = await fetch('/api/shifts/config').then((r) => r.json());
   starts = c.starts || [];
   teams = c.teams || [];
   ['s0', 's1', 's2'].forEach((id, i) => { $(id).value = starts[i] || ''; });
-  $('teams').value = teams.join(',');
   $('rotDays').value = c.rotation_days;
   $('anchor').value = c.rotation_anchor;
+  setPatternTeams(teams);
 }
+
+// Edited start times label the boxes, so the picker keeps showing which team
+// works which clock hour.
+['s0', 's1', 's2'].forEach((id) => $(id).addEventListener('change', renderTeams));
+
+Keypad.attach($('rotDays'), { title: 'Rotate every (days)' });
 
 async function loadPreview() {
   const data = await fetch('/api/shifts/preview?days=14').then((r) => r.json());
@@ -197,7 +264,7 @@ async function loadPreview() {
 $('btnSavePattern').addEventListener('click', async () => {
   const body = {
     starts: ['s0', 's1', 's2'].map((id) => $(id).value),
-    teams: $('teams').value.split(',').map((t) => t.trim()).filter(Boolean),
+    teams: patternTeams.filter(Boolean),
     rotation_days: parseInt($('rotDays').value, 10),
     rotation_anchor: $('anchor').value,
   };
