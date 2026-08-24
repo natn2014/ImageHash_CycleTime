@@ -437,6 +437,143 @@ td.stop { color: var(--warning); }
 }
 .pick.on { color: var(--page); background: var(--series-1); border-color: var(--series-1); }
 
+/* --------------------------------------------------------- team picker */
+
+/* Same tap targets and accent as the day-override picker above: choosing who
+ * works a shift should feel identical whether it is the rota or one odd day. */
+.team-seq { display: flex; gap: 4px; }
+
+.team-slot {
+  flex: 1 1 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1px;
+  font-family: var(--font);
+  background: var(--page);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 3px 0;
+  min-height: 38px;
+  cursor: pointer;
+  min-width: 0;
+}
+/* The box the next letter lands in — outlined and brightened, so it reads as
+ * "here next" without borrowing the filled-in look of a selected team. */
+.team-slot.sel { border-color: var(--series-1); background: #16233a; }
+
+.team-slot-time {
+  font-size: 9px;
+  font-variant-numeric: tabular-nums;
+  color: var(--text-muted);
+}
+.team-slot-name { font-size: 13px; font-weight: 700; color: var(--text-primary); line-height: 1; }
+.team-slot.sel .team-slot-name { color: var(--series-1); }
+
+.team-pool { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 4px; }
+
+.team-key {
+  position: relative;
+  flex: 1 1 0;
+  min-width: 34px;
+  min-height: 30px;
+  font-family: var(--font);
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--text-secondary);
+  background: var(--page);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  cursor: pointer;
+}
+.team-key.used { color: var(--page); background: var(--series-1); border-color: var(--series-1); }
+
+/* Which shift an in-use letter is on. Carries the same fact as the fill, in
+ * text, for anyone who cannot separate the two states by colour. */
+.team-key-n {
+  position: absolute;
+  top: 1px;
+  right: 3px;
+  font-size: 8px;
+  font-weight: 700;
+  opacity: 0.75;
+}
+
+/* ---------------------------------------------------------- number pad */
+
+/* Fields the keypad owns are typed into by tapping, so the caret and the
+ * hairline spin buttons would both be lying about what works here. */
+.keypad-input { cursor: pointer; caret-color: transparent; }
+.keypad-input::-webkit-inner-spin-button,
+.keypad-input::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
+
+.kp-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 20;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0, 0, 0, 0.65);
+}
+
+.kp {
+  width: 236px;
+  background: var(--surface-1);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.kp-title {
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--text-muted);
+}
+
+.kp-display {
+  font-size: 22px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+  color: var(--text-primary);
+  background: var(--page);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 4px 8px;
+}
+
+.kp-hint { font-size: 10px; color: var(--text-muted); text-align: right; }
+/* Out of range is shown on the value and the limit together, and Set goes
+ * disabled with it — the colour is the least of the three signals. */
+.kp-display.bad { color: var(--critical); border-color: var(--critical); }
+.kp-hint.bad { color: var(--critical); }
+
+.kp-keys { display: grid; grid-template-columns: repeat(3, 1fr); gap: 5px; }
+
+.kp-key {
+  font-family: var(--font);
+  font-size: 17px;
+  font-weight: 600;
+  color: var(--text-primary);
+  background: var(--page);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  /* Fingertip-sized: this is the only way to enter a number on the panel. */
+  min-height: 42px;
+  cursor: pointer;
+}
+.kp-key:active { background: var(--gridline); }
+.kp-key:disabled { opacity: 0.25; cursor: default; }
+.kp-key.wide-label { font-size: 12px; letter-spacing: 0.05em; color: var(--text-secondary); }
+
+.kp-actions { display: flex; gap: 5px; }
+.kp-actions .btn { flex: 1 1 0; justify-content: center; min-height: 36px; }
+
 /* ------------------------------------------------------ pattern preview */
 
 .preview-table { font-size: 10.5px; font-variant-numeric: tabular-nums; overflow-y: auto; }

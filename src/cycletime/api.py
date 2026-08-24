@@ -44,6 +44,23 @@ def create_app(tracker: Tracker) -> FastAPI:
     app = FastAPI(title="Cycle Time Tracker", lifespan=lifespan)
     app.state.tracker = tracker
 
+    # THE GOTCHA THAT SURVIVES A REBOOT: nothing served here is worth caching —
+    # it is either the UI itself or live numbers — and the panel runs Chromium
+    # against a --user-data-dir whose disk cache outlives the power cycle. With
+    # no Cache-Control the browser is free to invent its own freshness window
+    # from Last-Modified, so an updated page keeps rendering the OLD markup and
+    # --kiosk has no reload button to break out of it. Symptom: you edit web/,
+    # restart, reboot, and the panel still shows the previous UI.
+    #
+    # `no-cache` is "store it, but ask me every time" — not "don't store it".
+    # The files still carry ETag/Last-Modified, so a revalidation over loopback
+    # costs one 304 and no body.
+    @app.middleware("http")
+    async def always_revalidate(request: Request, call_next):
+        response = await call_next(request)
+        response.headers.setdefault("Cache-Control", "no-cache")
+        return response
+
     # ------------------------------------------------------------- pages
 
     @app.get("/", include_in_schema=False)

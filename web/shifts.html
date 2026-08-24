@@ -65,9 +65,13 @@
         <label for="s2">Shift 3 start</label>
         <input type="time" id="s2">
       </div>
+      <!-- Order is the pattern: the team in the first box works shift 1 on the
+           anchor date. Tapping a letter fills the highlighted box and steps on
+           to the next, so a rota is entered by tapping A B C in order. -->
       <div class="field">
-        <label for="teams">Teams (comma separated)</label>
-        <input type="text" id="teams" placeholder="A,B,C">
+        <label>Teams — tap in shift order</label>
+        <div class="team-seq" id="teamSeq"></div>
+        <div class="team-pool" id="teamPool"></div>
       </div>
       <div class="field">
         <label for="rotDays">Rotate every (days)</label>
@@ -93,6 +97,7 @@
 </div>
 
 <div class="toast" id="toast"></div>
+<script src="/static/keypad.js"></script>
 <script src="/static/shifts.js"></script>
 </body>
 </html>
