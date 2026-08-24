@@ -24,6 +24,9 @@ let teams = [];
 
 const fmt = (v, d = 1) => (v === null || v === undefined ? '—' : Number(v).toFixed(d));
 
+// Unit for piece counts, matching the wording used on the line.
+const PCS = 'แผ่น';
+
 function fmtDate(iso) {
   const d = new Date(`${iso}T00:00:00`);
   if (Number.isNaN(d.getTime())) return iso || '—';
@@ -86,6 +89,51 @@ function rankRow(row, currentTeam) {
     </div>`;
 }
 
+/* Pieces this shift against the target implied by the cycle time. The server
+ * does that arithmetic (see Tracker.board) so this stays a renderer and cannot
+ * disagree with the per-team counts below. */
+function renderQty(data) {
+  const q = data.quantity || {};
+  const made = q.made ?? 0;
+  const hasTarget = q.target !== null && q.target !== undefined;
+
+  $('qtyMade').textContent = hasTarget ? `${made} / ${q.target}` : String(made);
+
+  const left = $('qtyLeft');
+  if (!hasTarget) {
+    left.textContent = '—';
+    left.classList.remove('qty-done');
+    return;
+  }
+  const remaining = q.remaining ?? 0;
+  left.textContent = `${remaining} ${PCS}`;
+  // Nothing left to make is the one state worth colouring — a shift that hit
+  // its number should say so from across the floor.
+  left.classList.toggle('qty-done', remaining === 0);
+}
+
+function countRow(row, currentTeam) {
+  const empty = !row.n;
+  const cls = ['rank-row'];
+  if (empty) cls.push('empty');
+  if (row.team === currentTeam) cls.push('current');
+  return `<div class="${cls.join(' ')}">
+      <span class="rank-num">${row.rank ?? '–'}</span>
+      <span class="rank-name">Team ${row.team}:</span>
+      <span class="rank-value">${row.n ?? 0}</span>
+      <span class="rank-unit">${empty ? '' : PCS}</span>
+    </div>`;
+}
+
+function renderDayQuantity(data) {
+  // Same work date as the CT panel beside it, deliberately repeated: the two
+  // panels are read independently from a distance.
+  $('qtyDate').textContent = fmtDate(data.work_date);
+  const current = (data.shift || {}).team;
+  $('qtyList').innerHTML =
+    (data.day_quantity || []).map((r) => countRow(r, current)).join('');
+}
+
 function renderDay(data) {
   $('dayDate').textContent = fmtDate(data.work_date);
   const current = (data.shift || {}).team;
@@ -124,7 +172,9 @@ function render(data) {
   $('station').textContent = data.station || '—';
   teams = data.teams || [];
   renderLive(data);
+  renderQty(data);
   renderDay(data);
+  renderDayQuantity(data);
   renderWeeks(data);
   renderMonth(data);
 }

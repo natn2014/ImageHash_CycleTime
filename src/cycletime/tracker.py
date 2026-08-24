@@ -281,6 +281,19 @@ class Tracker:
                 r["rank"] = i + 1 if r["avg"] is not None else None
             return rows
 
+        def ranked_by_count(start: str, end: str) -> list[dict]:
+            """Teams by pieces made, most first.
+
+            The opposite sense to ranked(): on cycle time low wins, on output
+            high wins. A team with nothing recorded sorts last either way.
+            """
+            stats = self.store.averages_by_team(start, end)
+            rows = [{"team": t, "n": stats.get(t, {}).get("n", 0)} for t in teams]
+            rows.sort(key=lambda r: -r["n"])
+            for i, r in enumerate(rows):
+                r["rank"] = i + 1 if r["n"] else None
+            return rows
+
         m_start, m_end = month_bounds(today.year, today.month)
         weeks = []
         for w in range(1, 5):
@@ -302,6 +315,31 @@ class Tracker:
         target = self.cfg.cycle.target_s
         live_s = last["cycle_s"] if last and not last.get("is_stoppage") else None
 
+        # Pieces one team is expected to make in its shift, from the target
+        # cycle time alone: a shift's worth of seconds divided by seconds per
+        # piece. The shift length is derived from the roster rather than fixed
+        # at 8 h, so a site running four 6-hour slots gets the right number
+        # without editing code.
+        #
+        # Floored to the hundred on purpose. 8 h at 14 s/piece is 2057, which
+        # is not a figure anyone carries in their head or writes on a
+        # whiteboard; 2000 is. Flooring rather than rounding also keeps the
+        # target honest — it is never set above what the cycle time can
+        # actually deliver.
+        slots = len(self.cfg.shifts.starts) or 1
+        shift_hours = 24 / slots
+        if target > 0:
+            target_qty = int(shift_hours * 3600 / target) // 100 * 100
+        else:
+            target_qty = None
+
+        day_rows = ranked(shift.work_date, shift.work_date)
+        day_counts = ranked_by_count(shift.work_date, shift.work_date)
+        # The bar counts only the team on shift now. Its own row in the day
+        # panel is the same number, so the two can never disagree.
+        made = next((r["n"] for r in day_counts if r["team"] == shift.team), 0)
+        remaining = None if target_qty is None else max(0, target_qty - made)
+
         return {
             "station": self.cfg.station.name,
             "now": datetime.now().isoformat(timespec="seconds"),
@@ -313,8 +351,15 @@ class Tracker:
                 "diff_s": None if live_s is None else round(live_s - target, 2),
                 "tolerance_s": self.cfg.cycle.diff_tolerance_s,
             },
+            "quantity": {
+                "made": made,
+                "target": target_qty,
+                "remaining": remaining,
+                "shift_hours": round(shift_hours, 2),
+            },
             "teams": teams,
-            "day": ranked(shift.work_date, shift.work_date),
+            "day": day_rows,
+            "day_quantity": day_counts,
             "weeks": weeks,
             "month": {
                 "label": today.strftime("%B").upper(),

@@ -68,7 +68,7 @@ html, body {
 
 .live {
   flex: 0 0 auto;
-  height: 24vh;
+  height: 20vh;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -109,22 +109,75 @@ html, body {
 .diff-item { display: flex; align-items: baseline; gap: 0.8vw; }
 .diff-label { font-size: 3vh; font-weight: 700; opacity: 0.85; }
 
+/* ------------------------------------------------------------ quantity */
+
+/* Pieces made this shift against the target the cycle time implies. Navy, not
+ * a second green/red bar: the diff bar above already owns that signal, and two
+ * colour-changing bars stacked would compete for the same glance. */
+.qty {
+  flex: 0 0 auto;
+  height: 8vh;
+  display: flex;
+  align-items: center;
+  justify-content: space-around;
+  background: var(--navy);
+  font-size: 3.8vh;
+  font-weight: 800;
+  white-space: nowrap;
+}
+
+.qty-item {
+  display: flex;
+  align-items: baseline;
+  gap: 0.8vw;
+  font-variant-numeric: tabular-nums;
+}
+
+.qty-label { font-size: 3vh; font-weight: 700; opacity: 0.85; }
+
+/* Target met. Green on the number alone rather than the whole bar, so the
+ * shift's result reads as a state change without repainting a third of the
+ * board. */
+.qty-done { color: var(--green); }
+
 /* ---------------------------------------------------------------- day */
 
+/* Two panels side by side: cycle time on the left, pieces on the right, both
+ * for the same work date. */
 .day {
   flex: 1 1 auto;
   min-height: 0;
+  display: flex;
+  gap: 0.4vh;
+}
+
+.day-panel {
+  flex: 1 1 50%;
+  min-width: 0;
   display: flex;
   flex-direction: column;
   background: var(--blue);
   padding: 1vh 2vw;
 }
 
-.day-date {
-  text-align: center;
-  font-size: 3.6vh;
-  font-weight: 800;
+/* Label and date on one line, as the mockup has them: "CT:  07/08/2026". */
+.day-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 1vw;
   margin-bottom: 0.6vh;
+}
+
+.day-title {
+  font-size: 3.2vh;
+  font-weight: 800;
+}
+
+.day-date {
+  font-size: 3.2vh;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
 }
 
 .rank-list {
@@ -253,7 +306,8 @@ table.week-grid td.best { background: rgba(255, 255, 255, 0.16); border-radius: 
 /* Shown when the API cannot be reached — otherwise the board would display a
  * frozen number indefinitely and be believed. */
 .stale .live,
-.stale .day,
+.stale .qty,
+.stale .day-panel,
 .stale .panel { opacity: 0.35; }
 
 .offline-tag {

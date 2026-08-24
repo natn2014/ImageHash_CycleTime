@@ -329,14 +329,42 @@ Omit the body to re-stamp everything.
 - **Diff bar** — green while within `diff_tolerance_s` of target, red beyond.
   The arrow and the signed number say the same thing as the colour, so it still
   reads in a monochrome photo.
-- **Day / Month** — average per team, **best cycle time on top**, with an
-  explicit rank number. A team that has not run shows `—` and sorts last, never
-  first.
+- **จำนวน bar** — pieces the team on shift has made, against the target for a
+  full shift, with **เหลืออีก** counting down what is left. It turns green on the
+  last figure once the target is met.
+- **CT / จำนวน panels** — the same work date read two ways: cycle time per team
+  on the left (**lowest on top**), pieces made per team on the right (**most on
+  top**). Low wins on time, high wins on output, so the two panels rank in
+  opposite directions by design.
+- **Month** — average per team, **best cycle time on top**, with an explicit
+  rank number. A team that has not run shows `—` and sorts last, never first.
 - **Week** — W1 = days 1–7, W2 = 8–14, W3 = 15–21, W4 = 22–end of month. The
   best cell in each column is highlighted.
 - **NOW** tag marks the team currently on shift.
 
-Stoppages are excluded from every average, the same as on the dashboard.
+Stoppages are excluded from every average **and from the piece counts** — a
+stoppage is not a product, so it neither drags an average down nor counts
+toward the shift target.
+
+### Where the จำนวน target comes from
+
+Nobody enters it. It is derived from the target cycle time and the length of a
+shift, which the roster already knows:
+
+```
+shift seconds / target cycle time, floored to the nearest 100
+
+8 h at 14 s/piece  ->  28800 / 14  =  2057  ->  2000 pcs
+```
+
+The shift length comes from the number of slots in the roster (three 8-hour
+slots by default), so a site running four 6-hour shifts gets the right figure
+without a code change. The floor to the nearest hundred is deliberate: 2057 is
+not a number anyone carries in their head or writes on a whiteboard, and
+flooring rather than rounding keeps the target honest — never set above what
+the cycle time can actually deliver.
+
+Change `cycle.target_s` and the piece target follows.
 
 If the board loses contact with the tracker it dims and shows **NO DATA**
 rather than leaving a stale number on the wall to be believed.

@@ -27,10 +27,34 @@
     </div>
   </section>
 
-  <section class="day">
-    <div class="day-date" id="dayDate">—</div>
-    <div class="rank-list" id="dayList"></div>
+  <section class="qty" id="qty">
+    <div class="qty-item">
+      <span class="qty-label">จำนวน:</span>
+      <span id="qtyMade">—</span>
+    </div>
+    <div class="qty-item">
+      <span class="qty-label">เหลืออีก:</span>
+      <span id="qtyLeft">—</span>
+    </div>
   </section>
+
+  <div class="day">
+    <section class="day-panel">
+      <div class="day-head">
+        <span class="day-title">CT:</span>
+        <span class="day-date" id="dayDate">—</span>
+      </div>
+      <div class="rank-list" id="dayList"></div>
+    </section>
+
+    <section class="day-panel">
+      <div class="day-head">
+        <span class="day-title">จำนวน:</span>
+        <span class="day-date" id="qtyDate">—</span>
+      </div>
+      <div class="rank-list" id="qtyList"></div>
+    </section>
+  </div>
 
   <div class="bottom">
     <section class="panel week">
