@@ -30,16 +30,46 @@ def client(tmp_path):
 # ------------------------------------------------------------ the formula
 
 @pytest.mark.parametrize("target_s, pieces", [
-    (14.0, 2000),    # the worked example: 28800 / 14 = 2057 -> 2000
+    # Thousands: floored to the hundred. The worked example is 28800 / 14 =
+    # 2057 -> 2000.
+    (14.0, 2000),
     (15.0, 1900),
     (20.0, 1400),
     (7.5, 3800),
-    (60.0, 400),
+    # Hundreds: floored to the ten. A flat hundred here would turn 480 into
+    # 400 and throw away 17% of an achievable target.
+    (30.0, 960),
+    (60.0, 480),
+    (200.0, 140),
+    # Below a hundred: exact. Flooring these to the hundred gave zero.
+    (300.0, 96),
+    (600.0, 48),
 ])
-def test_piece_target_floors_to_the_hundred(client, target_s, pieces):
+def test_piece_target_rounds_down_to_a_memorable_figure(client, target_s, pieces):
     r = client.post("/api/cycle", json={"target_s": target_s})
     assert r.status_code == 200
     assert r.json()["pieces"]["target"] == pieces
+
+
+def test_piece_target_is_never_rounded_up(client):
+    """A target above what the cycle time can deliver is not a target."""
+    for target_s in [0.1, 1, 3, 7, 13.7, 14, 22, 47.5, 99, 300, 600]:
+        client.post("/api/cycle", json={"target_s": target_s})
+        pieces = client.get("/api/cycle").json()["pieces"]["target"]
+        assert pieces <= 8 * 3600 / target_s, f"{target_s}s claimed {pieces}"
+
+
+def test_no_usable_target_produces_a_zero_piece_target(client):
+    """Zero pieces reads on the board as a met target, green, with nothing made.
+
+    Flooring to a flat hundred did exactly that for any cycle time above 288 s,
+    because 28800 / 289 = 99 floors to 0.
+    """
+    for target_s in [280, 288, 289, 300, 400, 500, 600]:
+        client.post("/api/cycle", json={"target_s": target_s})
+        board = client.get("/api/board").json()["quantity"]
+        assert board["target"] > 0, f"{target_s}s gave a zero target"
+        assert board["remaining"] > 0, f"{target_s}s reads as already met"
 
 
 def test_shift_length_is_eight_hours(client):

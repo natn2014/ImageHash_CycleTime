@@ -193,7 +193,11 @@ let shiftHours = null;
 // so a drift between the two cannot outlive an Apply.
 function piecesFor(targetS) {
   if (!Number.isFinite(targetS) || targetS <= 0 || !shiftHours) return null;
-  return Math.floor((shiftHours * 3600) / targetS / 100) * 100;
+  const raw = Math.floor((shiftHours * 3600) / targetS);
+  // Must match Tracker.shift_piece_target exactly. Hundreds in the thousands,
+  // tens in the hundreds, exact below that - see that method for why.
+  const step = raw >= 1000 ? 100 : raw >= 100 ? 10 : 1;
+  return Math.floor(raw / step) * step;
 }
 
 function showPieces(pieces, preview) {

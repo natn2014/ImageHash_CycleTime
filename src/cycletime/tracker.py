@@ -281,10 +281,16 @@ class Tracker:
         starts and repairs anything else back to the default. If that
         constraint is ever relaxed, this figure follows on its own.
 
-        Floored to the hundred on purpose. 8 h at 14 s/piece is 2057, which is
-        not a figure anyone carries in their head or writes on a whiteboard;
-        2000 is. Flooring rather than rounding also keeps the target honest -
-        it is never set above what the cycle time can actually deliver.
+        Rounded DOWN to a figure someone can hold in their head, never up: a
+        target above what the cycle time can deliver is not a target. 8 h at
+        14 s/piece is 2057, which nobody writes on a whiteboard; 2000 is.
+
+        The step scales with the size of the number, because a flat hundred is
+        only sensible in the thousands. Flooring 480 (a 60 s cycle) to 400
+        would throw away 17% of an achievable target, and anything under 100
+        would floor to ZERO - which the board renders as a met target, green,
+        with nothing made. Hence: hundreds in the thousands, tens in the
+        hundreds, exact below that.
 
         One definition, used by both the board and the Setup page, so the
         number an operator sees when setting the target is exactly the number
@@ -293,7 +299,11 @@ class Tracker:
         target = self.cfg.cycle.target_s
         slots = len(self.cfg.shifts.starts) or 1
         shift_hours = 24 / slots
-        pieces = int(shift_hours * 3600 / target) // 100 * 100 if target > 0 else None
+        pieces = None
+        if target > 0:
+            raw = int(shift_hours * 3600 / target)
+            step = 100 if raw >= 1000 else 10 if raw >= 100 else 1
+            pieces = raw // step * step
         return {
             "target_s": target,
             "shift_hours": round(shift_hours, 2),

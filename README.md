@@ -358,18 +358,25 @@ Nobody enters it. It is derived from the target cycle time and the length of a
 shift, which the roster already knows:
 
 ```
-shift seconds / target cycle time, floored to the nearest 100
+shift seconds / target cycle time, rounded DOWN to a memorable figure
 
 8 h at 14 s/piece  ->  28800 / 14  =  2057  ->  2000 pcs
 ```
 
+The step scales with the size of the number — hundreds in the thousands, tens
+in the hundreds, exact below that — so a long cycle time is not distorted by a
+rounding rule meant for a short one. A flat hundred would floor 480 (a 60 s
+cycle) to 400, discarding 17% of an achievable target, and would floor anything
+under 100 to zero, which the board would then show as a met target with nothing
+made.
+
 The shift length is read from the roster (three 8-hour slots) rather than
 written into the formula, so the two cannot drift apart. Note that the roster
 requires exactly three shift starts — a different slot count is repaired back
-to the default — so in practice this is always 8 h. The floor to the nearest
-hundred is deliberate: 2057 is not a number anyone carries in their head or
-writes on a whiteboard, and flooring rather than rounding keeps the target
-honest — never set above what the cycle time can actually deliver.
+to the default — so in practice this is always 8 h. Rounding down rather than
+to nearest is deliberate: 2057 is not a number anyone carries in their head or
+writes on a whiteboard, and never rounding up keeps the target honest — it is
+never set above what the cycle time can actually deliver.
 
 Set it on the **Setup** page under **Cycle target** — type a cycle time on the
 keypad and the panel previews the piece target it produces before you commit
