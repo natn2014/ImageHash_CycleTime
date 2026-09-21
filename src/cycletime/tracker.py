@@ -257,6 +257,49 @@ class Tracker:
         self.cfg = cfg
         config_mod.update_file(self.config_path, detector=cfg.detector)
 
+    def update_cycle(self, cycle_cfg) -> None:
+        """Apply a new cycle target from the Setup page and persist it.
+
+        Nothing has to be restarted: the target is read fresh on every board
+        payload, so the scoreboard's diff bar and its piece target both follow
+        within one refresh.
+        """
+        cfg = config_mod.validate(replace(self.cfg, cycle=cycle_cfg))
+        self.cfg = cfg
+        config_mod.update_file(self.config_path, cycle=cfg.cycle)
+        log.info("cycle target updated: target=%.2fs tolerance=%.2fs -> %s pcs/shift",
+                 cfg.cycle.target_s, cfg.cycle.diff_tolerance_s,
+                 self.shift_piece_target()["target"])
+
+    def shift_piece_target(self) -> dict:
+        """Pieces one team is expected to make in one shift.
+
+        Derived from the target cycle time alone: a shift's worth of seconds
+        divided by seconds per piece. The shift length is read from the roster
+        rather than written as 8 h, so the two cannot drift apart. In practice
+        it is always 8 h: config._validate_shifts requires exactly three shift
+        starts and repairs anything else back to the default. If that
+        constraint is ever relaxed, this figure follows on its own.
+
+        Floored to the hundred on purpose. 8 h at 14 s/piece is 2057, which is
+        not a figure anyone carries in their head or writes on a whiteboard;
+        2000 is. Flooring rather than rounding also keeps the target honest -
+        it is never set above what the cycle time can actually deliver.
+
+        One definition, used by both the board and the Setup page, so the
+        number an operator sees when setting the target is exactly the number
+        that appears on the wall.
+        """
+        target = self.cfg.cycle.target_s
+        slots = len(self.cfg.shifts.starts) or 1
+        shift_hours = 24 / slots
+        pieces = int(shift_hours * 3600 / target) // 100 * 100 if target > 0 else None
+        return {
+            "target_s": target,
+            "shift_hours": round(shift_hours, 2),
+            "target": pieces,
+        }
+
     # ----------------------------------------------------------------- status
 
     def _current_shift_dict(self) -> dict:
@@ -349,23 +392,9 @@ class Tracker:
         target = self.cfg.cycle.target_s
         live_s = last["cycle_s"] if last and not last.get("is_stoppage") else None
 
-        # Pieces one team is expected to make in its shift, from the target
-        # cycle time alone: a shift's worth of seconds divided by seconds per
-        # piece. The shift length is derived from the roster rather than fixed
-        # at 8 h, so a site running four 6-hour slots gets the right number
-        # without editing code.
-        #
-        # Floored to the hundred on purpose. 8 h at 14 s/piece is 2057, which
-        # is not a figure anyone carries in their head or writes on a
-        # whiteboard; 2000 is. Flooring rather than rounding also keeps the
-        # target honest — it is never set above what the cycle time can
-        # actually deliver.
-        slots = len(self.cfg.shifts.starts) or 1
-        shift_hours = 24 / slots
-        if target > 0:
-            target_qty = int(shift_hours * 3600 / target) // 100 * 100
-        else:
-            target_qty = None
+        # Shared with the Setup page's live preview - see shift_piece_target.
+        piece_target = self.shift_piece_target()
+        target_qty = piece_target["target"]
 
         day_rows = ranked(shift.work_date, shift.work_date)
         day_counts = ranked_by_count(shift.work_date, shift.work_date)
@@ -394,7 +423,7 @@ class Tracker:
                 "made": made,
                 "target": target_qty,
                 "remaining": remaining,
-                "shift_hours": round(shift_hours, 2),
+                "shift_hours": piece_target["shift_hours"],
             },
             "teams": teams,
             "day": day_rows,

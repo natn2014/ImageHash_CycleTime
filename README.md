@@ -114,7 +114,7 @@ why a tuned line can be updated without being re-tuned.
 |---|---|---|
 | `/` | 7" DSI | Run chart, histogram, live stats |
 | `/board` | 40" HDMI | Team scoreboard |
-| `/setup` | 7" DSI | Camera aiming and detection thresholds |
+| `/setup` | 7" DSI | Camera aiming, detection thresholds, target cycle time |
 | `/shifts` | 7" DSI | Shift calendar and rotation pattern |
 
 `deploy/kiosk.sh` lays the outputs side by side with `wlr-randr` — the DSI at
@@ -213,6 +213,12 @@ Avoid:
 
 Only touch these if the counts are wrong. All four are on the setup page and
 save instantly.
+
+Tap any number field and an on-screen keypad opens, with that field's own range
+shown above the keys and the decimal key disabled where only whole numbers make
+sense. The 7" panel has no keyboard, Chromium in kiosk mode raises no soft one,
+and a number input's spinner arrows are smaller than a fingertip — so the pad
+is the only way these get filled in on the line.
 
 | Setting | Raise it when | Lower it when |
 |---|---|---|
@@ -357,14 +363,18 @@ shift seconds / target cycle time, floored to the nearest 100
 8 h at 14 s/piece  ->  28800 / 14  =  2057  ->  2000 pcs
 ```
 
-The shift length comes from the number of slots in the roster (three 8-hour
-slots by default), so a site running four 6-hour shifts gets the right figure
-without a code change. The floor to the nearest hundred is deliberate: 2057 is
-not a number anyone carries in their head or writes on a whiteboard, and
-flooring rather than rounding keeps the target honest — never set above what
-the cycle time can actually deliver.
+The shift length is read from the roster (three 8-hour slots) rather than
+written into the formula, so the two cannot drift apart. Note that the roster
+requires exactly three shift starts — a different slot count is repaired back
+to the default — so in practice this is always 8 h. The floor to the nearest
+hundred is deliberate: 2057 is not a number anyone carries in their head or
+writes on a whiteboard, and flooring rather than rounding keeps the target
+honest — never set above what the cycle time can actually deliver.
 
-Change `cycle.target_s` and the piece target follows.
+Set it on the **Setup** page under **Cycle target** — type a cycle time on the
+keypad and the panel previews the piece target it produces before you commit
+to it. The 40" board picks the new figure up on its next refresh; nothing
+needs restarting.
 
 If the board loses contact with the tracker it dims and shows **NO DATA**
 rather than leaving a stale number on the wall to be believed.

@@ -25,6 +25,9 @@ let roi = null;
 let savedRoi = null;
 let drag = null;
 
+// Unit for piece counts, matching the wording on the 40" board.
+const PCS = 'แผ่น';
+
 let toastTimer = null;
 function toast(msg) {
   const el = $('toast');
@@ -33,6 +36,14 @@ function toast(msg) {
   clearTimeout(toastTimer);
   toastTimer = setTimeout(() => el.classList.remove('show'), 2200);
 }
+
+// Every numeric field on this page is finger-only. The 7" panel has no
+// keyboard, Chromium in kiosk mode raises no soft one, and the spinner arrows
+// on a number input are smaller than a fingertip - so tapping any of these
+// opens the keypad instead. Each one's title, range and decimal key come from
+// its own <label> and min/max/step, so there is nothing to restate here and
+// nothing to keep in step with the markup.
+['target', 'enter', 'exit', 'thr', 'dwell'].forEach((id) => Keypad.attach($(id)));
 
 /* ------------------------------------------------------------ geometry */
 
@@ -170,6 +181,72 @@ $('btnReset').addEventListener('click', () => {
   toast('Reverted to saved ROI');
 });
 
+/* ------------------------------------------------------- cycle target */
+
+// Shift length as the server reports it, so the preview below never assumes
+// 8 h. Null until the first load; the preview stays blank without it rather
+// than guessing.
+let shiftHours = null;
+
+// The same rule as Tracker.shift_piece_target, repeated here for the PREVIEW
+// only. The server's figure is authoritative and is adopted after every save,
+// so a drift between the two cannot outlive an Apply.
+function piecesFor(targetS) {
+  if (!Number.isFinite(targetS) || targetS <= 0 || !shiftHours) return null;
+  return Math.floor((shiftHours * 3600) / targetS / 100) * 100;
+}
+
+function showPieces(pieces, preview) {
+  const el = $('pieceOut');
+  if (pieces === null || pieces === undefined) {
+    el.textContent = '–';
+    return;
+  }
+  const hours = shiftHours ? `${shiftHours} h shift` : 'shift';
+  // The arrow marks an unsaved preview, so a number that is only proposed is
+  // never mistaken for the one the board is using.
+  el.textContent = `${preview ? '→ ' : ''}${pieces} ${PCS} / ${hours}`;
+}
+
+async function loadCycle() {
+  const c = await fetch('/api/cycle').then((r) => r.json());
+  $('target').value = c.target_s;
+  shiftHours = c.pieces ? c.pieces.shift_hours : null;
+  showPieces(c.pieces ? c.pieces.target : null, false);
+}
+
+// Live preview while the number is being changed, so the effect on the wall
+// board is visible before committing to it.
+$('target').addEventListener('input', () => {
+  showPieces(piecesFor(parseFloat($('target').value)), true);
+});
+
+$('btnTarget').addEventListener('click', async () => {
+  const target_s = parseFloat($('target').value);
+  if (!Number.isFinite(target_s) || target_s <= 0) {
+    return toast('Enter a target cycle time above 0');
+  }
+  const res = await fetch('/api/cycle', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ target_s }),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    return toast(err.detail || 'Could not apply target');
+  }
+  // Adopt what the server stored, not what was typed: it is the side that
+  // decides, and the piece figure comes back with it.
+  const c = await res.json();
+  shiftHours = c.pieces ? c.pieces.shift_hours : null;
+  $('target').value = c.target_s;
+  const pcs = c.pieces ? c.pieces.target : null;
+  showPieces(pcs, false);
+  toast(pcs === null
+    ? `Target ${c.target_s} s saved`
+    : `Target ${c.target_s} s · ${pcs} ${PCS} per shift`);
+});
+
 $('btnApply').addEventListener('click', async () => {
   const body = {
     enter_ratio: parseFloat($('enter').value),
@@ -225,5 +302,6 @@ setTimeout(syncCanvas, 600);
 
 loadRoi();
 loadDetector();
+loadCycle();
 pollStatus();
 setInterval(pollStatus, 400);

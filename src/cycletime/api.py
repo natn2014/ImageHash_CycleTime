@@ -20,7 +20,7 @@ from fastapi.responses import (
 )
 from fastapi.staticfiles import StaticFiles
 
-from .config import ROOT, DetectorConfig, Roi, ShiftsConfig
+from .config import ROOT, CycleConfig, DetectorConfig, Roi, ShiftsConfig
 from .stats import histogram, summarize
 from .tracker import Tracker
 
@@ -290,6 +290,45 @@ def create_app(tracker: Tracker) -> FastAPI:
         except (TypeError, ValueError) as exc:
             raise HTTPException(status_code=400, detail=str(exc))
         return await api_get_detector()
+
+    # -------------------------------------------------------------- cycle
+
+    @app.get("/api/cycle")
+    async def api_get_cycle():
+        """The cycle target, plus the piece target it implies.
+
+        The derived figure is returned rather than left to the client to work
+        out, so the number the Setup page shows is the same one the board
+        computes - there is only one implementation of that rule.
+        """
+        c = tracker.cfg.cycle
+        return {
+            "target_s": c.target_s,
+            "diff_tolerance_s": c.diff_tolerance_s,
+            "max_valid_s": c.max_valid_s,
+            "pieces": tracker.shift_piece_target(),
+        }
+
+    @app.post("/api/cycle")
+    async def api_set_cycle(payload: dict):
+        current = tracker.cfg.cycle
+        fields = CycleConfig.__dataclass_fields__
+        merged = {f: getattr(current, f) for f in fields}
+        for key, value in payload.items():
+            if key in merged:
+                merged[key] = value
+        # validate() only clamps a negative target to zero, and zero is not a
+        # usable target: it makes the diff bar meaningless and leaves the board
+        # with no piece target at all. Refuse it here with a reason the Setup
+        # page can show, rather than accepting a value that quietly breaks two
+        # panels on the wall.
+        try:
+            if float(merged["target_s"]) <= 0:
+                raise ValueError("target cycle time must be greater than 0")
+            tracker.update_cycle(CycleConfig(**merged))
+        except (TypeError, ValueError) as exc:
+            raise HTTPException(status_code=400, detail=str(exc))
+        return await api_get_cycle()
 
     # ------------------------------------------------------------ preview
 

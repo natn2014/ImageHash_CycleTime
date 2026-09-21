@@ -49,6 +49,21 @@
       </p>
       <div class="readout" id="readout">–</div>
 
+      <h2>Cycle target</h2>
+      <!-- Drives two things on the 40" board: the green/red diff bar, and the
+           จำนวน piece target, which is derived from this and never entered
+           by hand. The preview under the field shows what it will become. -->
+      <div class="field">
+        <label for="target">Target cycle time (s)</label>
+        <input type="number" id="target" step="0.1" min="0.1" max="600">
+      </div>
+      <div class="readout" id="pieceOut">–</div>
+      <button class="btn primary" id="btnTarget" type="button">Apply target</button>
+      <p class="hint">
+        The piece target follows the cycle time: a shift’s seconds divided by
+        it, floored to the nearest 100. Nobody types the piece figure in.
+      </p>
+
       <h2>Thresholds</h2>
       <div class="field">
         <label for="enter" class="label-enter">Enter ratio</label>
@@ -77,6 +92,7 @@
 </div>
 
 <div class="toast" id="toast"></div>
+<script src="/static/keypad.js"></script>
 <script src="/static/setup.js"></script>
 </body>
 </html>

@@ -1,0 +1,120 @@
+"""Cycle target tests — the piece target is derived, never entered.
+
+The rule these pin down is the one an operator relies on without being told:
+change the target cycle time on the Setup page and the 40" board's จำนวน
+target follows, with no restart and no second number to keep in step.
+"""
+
+from __future__ import annotations
+
+import json
+from dataclasses import replace
+
+import pytest
+from fastapi.testclient import TestClient
+
+from cycletime import config as config_mod
+from cycletime.api import create_app
+from cycletime.tracker import Tracker
+
+
+@pytest.fixture
+def client(tmp_path):
+    cfg = config_mod.Config()
+    cfg = replace(cfg, store=replace(cfg.store, db_path=str(tmp_path / "cycles.db")))
+    tracker = Tracker(config_mod.validate(cfg), config_path=tmp_path / "config.json")
+    # The camera is never started: nothing here needs a frame.
+    return TestClient(create_app(tracker))
+
+
+# ------------------------------------------------------------ the formula
+
+@pytest.mark.parametrize("target_s, pieces", [
+    (14.0, 2000),    # the worked example: 28800 / 14 = 2057 -> 2000
+    (15.0, 1900),
+    (20.0, 1400),
+    (7.5, 3800),
+    (60.0, 400),
+])
+def test_piece_target_floors_to_the_hundred(client, target_s, pieces):
+    r = client.post("/api/cycle", json={"target_s": target_s})
+    assert r.status_code == 200
+    assert r.json()["pieces"]["target"] == pieces
+
+
+def test_shift_length_is_eight_hours(client):
+    """The roster is fixed at three slots, so a shift is always 8 h.
+
+    config._validate_shifts repairs any other slot count back to the default,
+    which is why no supported configuration produces a different figure.
+    """
+    assert client.get("/api/cycle").json()["pieces"]["shift_hours"] == 8.0
+
+
+def test_shift_length_is_read_from_the_roster_not_hardcoded(tmp_path):
+    """Guards the derivation itself, not a supported configuration.
+
+    Four 6-hour slots cannot survive validate() today, so this sets them on the
+    tracker directly. The point is that shift_piece_target() divides 24 h by the
+    slot count rather than assuming 8 — if the three-slot rule is ever lifted,
+    the piece target follows without anyone remembering to change it here.
+    """
+    cfg = config_mod.Config()
+    cfg = replace(cfg, store=replace(cfg.store, db_path=str(tmp_path / "c.db")))
+    tracker = Tracker(config_mod.validate(cfg), config_path=tmp_path / "config.json")
+    tracker.cfg = replace(
+        tracker.cfg,
+        shifts=replace(tracker.cfg.shifts,
+                       starts=("00:00", "06:00", "12:00", "18:00"),
+                       teams=("A", "B", "C", "D")),
+    )
+    got = tracker.shift_piece_target()
+    assert got["shift_hours"] == 6.0
+    assert got["target"] == 1500          # 21600 / 14 = 1542 -> 1500
+
+
+# --------------------------------------------------------- the wiring
+
+def test_new_target_reaches_the_board_without_a_restart(client):
+    client.post("/api/cycle", json={"target_s": 20.0})
+    board = client.get("/api/board").json()
+    assert board["live"]["target_s"] == 20.0
+    assert board["quantity"]["target"] == 1400
+
+
+def test_setup_page_and_board_report_the_same_piece_target(client):
+    """One formula, two readers: the Setup preview must not drift from the wall."""
+    client.post("/api/cycle", json={"target_s": 17.0})
+    setup = client.get("/api/cycle").json()["pieces"]["target"]
+    board = client.get("/api/board").json()["quantity"]["target"]
+    assert setup == board
+
+
+def test_target_is_persisted(client, tmp_path):
+    """A target that only lives in memory is lost at the next power cut."""
+    client.post("/api/cycle", json={"target_s": 12.5})
+    saved = json.loads((tmp_path / "config.json").read_text(encoding="utf-8"))
+    assert saved["cycle"]["target_s"] == 12.5
+
+
+def test_saving_a_target_leaves_the_other_cycle_settings_alone(client):
+    """The Setup page posts one field; it must not blank the rest of the section."""
+    before = client.get("/api/cycle").json()
+    client.post("/api/cycle", json={"target_s": 9.0})
+    after = client.get("/api/cycle").json()
+    assert after["max_valid_s"] == before["max_valid_s"]
+    assert after["diff_tolerance_s"] == before["diff_tolerance_s"]
+
+
+# ------------------------------------------------------------ rejection
+
+@pytest.mark.parametrize("bad", [0, -5, "abc"])
+def test_unusable_targets_are_refused(client, bad):
+    """Zero would leave the board with no piece target and a meaningless bar."""
+    assert client.post("/api/cycle", json={"target_s": bad}).status_code == 400
+
+
+def test_a_refused_target_changes_nothing(client):
+    before = client.get("/api/cycle").json()["target_s"]
+    client.post("/api/cycle", json={"target_s": 0})
+    assert client.get("/api/cycle").json()["target_s"] == before
