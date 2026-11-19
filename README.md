@@ -328,6 +328,8 @@ Two places to change it:
 - **Pattern tab** — the four buttons at the top. The start-time fields and team
   boxes reshape to match; nothing is stored until **Save pattern**.
 
+![Pattern tab: switching from 3 Teams × 8 h to 3 Teams × 12 h — three start times become 08:00 and 20:00, the third team box becomes "Off", and after Save pattern the 14-day preview drops from three columns to two](docs/shifts-pattern.gif)
+
 Under **2 Teams × 8 h**, products made during the unstaffed 8 hours are still
 recorded, but count toward no team. Changing pattern does not re-attribute
 cycles already recorded — see [If the calendar was wrong](#if-the-calendar-was-wrong).
