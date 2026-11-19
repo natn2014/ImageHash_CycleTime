@@ -28,6 +28,7 @@
     "diff_tolerance_s": 1.0
   },
   "shifts": {
+    "pattern": "3x8",
     "starts": [
       "08:00",
       "16:00",

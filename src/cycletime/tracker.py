@@ -18,7 +18,7 @@ from . import config as config_mod
 from .camera import CaptureThread
 from .config import Config, Roi, ShiftsConfig
 from .detector import CycleEvent, TripLineDetector
-from .shifts import Roster
+from .shifts import Roster, get_pattern
 from .store import CycleStore, utcnow_iso
 
 log = logging.getLogger(__name__)
@@ -92,6 +92,7 @@ class Tracker:
             rotation_anchor=shifts.rotation_anchor,
             rotation_direction=shifts.rotation_direction,
             override_lookup=lookup,
+            shift_hours=get_pattern(shifts.pattern).hours,
         )
 
     def update_shifts(self, shifts: ShiftsConfig) -> ShiftsConfig:
@@ -101,8 +102,9 @@ class Tracker:
             self.roster = self._build_roster(cfg.shifts)
         self.cfg = cfg
         config_mod.update_file(self.config_path, shifts=cfg.shifts)
-        log.info("shift pattern updated: starts=%s teams=%s every %dd",
-                 cfg.shifts.starts, cfg.shifts.teams, cfg.shifts.rotation_days)
+        log.info("shift pattern updated: %s starts=%s teams=%s every %dd",
+                 cfg.shifts.pattern, cfg.shifts.starts, cfg.shifts.teams,
+                 cfg.shifts.rotation_days)
         return cfg.shifts
 
     # ------------------------------------------------------------- lifecycle
@@ -275,11 +277,9 @@ class Tracker:
         """Pieces one team is expected to make in one shift.
 
         Derived from the target cycle time alone: a shift's worth of seconds
-        divided by seconds per piece. The shift length is read from the roster
-        rather than written as 8 h, so the two cannot drift apart. In practice
-        it is always 8 h: config._validate_shifts requires exactly three shift
-        starts and repairs anything else back to the default. If that
-        constraint is ever relaxed, this figure follows on its own.
+        divided by seconds per piece. The shift length comes from the selected
+        crewing pattern (8 h or 12 h), the same figure the roster uses for its
+        slot windows, so the two cannot drift apart.
 
         Rounded DOWN to a figure someone can hold in their head, never up: a
         target above what the cycle time can deliver is not a target. 8 h at
@@ -297,8 +297,7 @@ class Tracker:
         that appears on the wall.
         """
         target = self.cfg.cycle.target_s
-        slots = len(self.cfg.shifts.starts) or 1
-        shift_hours = 24 / slots
+        shift_hours = get_pattern(self.cfg.shifts.pattern).hours
         pieces = None
         if target > 0:
             raw = int(shift_hours * 3600 / target)

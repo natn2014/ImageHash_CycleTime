@@ -245,3 +245,47 @@ def test_config_rejects_duplicate_team_names():
 def test_config_repairs_a_bad_anchor_date():
     bad = Config(shifts=ShiftsConfig(rotation_anchor="not-a-date"))
     assert validate(bad).shifts.rotation_anchor == ShiftsConfig().rotation_anchor
+
+
+# ---------------------------------------------------------------- patterns
+
+@pytest.mark.parametrize("key,slots,teams", [
+    ("3x8", 3, ("A", "B", "C")),
+    ("3x12", 2, ("A", "B", "C")),
+    ("2x12", 2, ("A", "B")),
+    ("2x8", 2, ("A", "B")),
+])
+def test_switching_pattern_reshapes_starts_and_teams(key, slots, teams):
+    """A 3 x 8 config switched to another pattern gets that pattern's shape."""
+    sh = validate(Config(shifts=ShiftsConfig(pattern=key))).shifts
+    assert sh.pattern == key
+    assert len(sh.starts) == slots
+    assert sh.teams == teams
+
+
+def test_unknown_pattern_falls_back_to_three_by_eight():
+    sh = validate(Config(shifts=ShiftsConfig(pattern="9x9"))).shifts
+    assert sh.pattern == "3x8"
+
+
+def test_three_teams_twelve_hours_rotates_one_team_off():
+    r = roster(starts=["08:00", "20:00"], shift_hours=12)
+    assert [r.team_for(d("2026-08-03"), s) for s in (0, 1)] == ["A", "B"]   # C off
+    assert [r.team_for(d("2026-08-10"), s) for s in (0, 1)] == ["C", "A"]   # B off
+    assert [r.team_for(d("2026-08-17"), s) for s in (0, 1)] == ["B", "C"]   # A off
+
+
+def test_twelve_hour_night_shift_crosses_midnight():
+    r = roster(starts=["08:00", "20:00"], teams=["A", "B"], shift_hours=12)
+    a = r.resolve(datetime(2026, 8, 4, 3, 0))
+    assert (a.work_date, a.slot, a.team) == ("2026-08-03", 1, "B")
+
+
+def test_two_teams_eight_hours_leaves_the_night_unstaffed():
+    r = roster(starts=["08:00", "16:00"], teams=["A", "B"], shift_hours=8)
+    assert r.resolve(datetime(2026, 8, 3, 10, 0)).team == "A"
+    assert r.resolve(datetime(2026, 8, 3, 18, 0)).team == "B"
+    off = r.resolve(datetime(2026, 8, 3, 2, 0))
+    assert off.team is None and off.slot == -1
+    # Next period the two teams swap.
+    assert r.resolve(datetime(2026, 8, 10, 10, 0)).team == "B"

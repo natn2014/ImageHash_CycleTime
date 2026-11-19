@@ -221,4 +221,4 @@ echo "    1. Open /setup and drag a box over the belt, then Save."
 echo "    2. Open /shifts -> Pattern and match 'Next 14 days' to the real roster."
 echo "    3. Reboot and confirm BOTH screens come back on their own."
 echo
-echo "  To update later:  cd $PROJECT_DIR && git pull && bash deploy/install.sh"
+echo "  To update later:  cd $PROJECT_DIR && bash deploy/update.sh --reboot"

@@ -30,6 +30,7 @@
         <button class="btn sm" id="prevMonth" type="button">‹</button>
         <span class="panel-title" id="monthLabel">—</span>
         <button class="btn sm" id="nextMonth" type="button">›</button>
+        <select class="pattern-select" id="calPattern" title="Shift pattern"></select>
         <span class="panel-note">tap a day to override</span>
       </div>
       <div class="cal-grid" id="calGrid"></div>
@@ -53,18 +54,13 @@
     <section class="panel" style="flex:0 0 300px">
       <div class="panel-head"><span class="panel-title">Pattern</span></div>
 
+      <!-- Crewing pattern: fixes the shift length (8 / 12 h) and how many
+           start times and teams the rota needs. -->
       <div class="field">
-        <label for="s0">Shift 1 start</label>
-        <input type="time" id="s0">
+        <label>Shift pattern</label>
+        <div class="pattern-pick" id="patternPick"></div>
       </div>
-      <div class="field">
-        <label for="s1">Shift 2 start</label>
-        <input type="time" id="s1">
-      </div>
-      <div class="field">
-        <label for="s2">Shift 3 start</label>
-        <input type="time" id="s2">
-      </div>
+      <div id="startFields"></div>
       <!-- Order is the pattern: the team in the first box works shift 1 on the
            anchor date. Tapping a letter fills the highlighted box and steps on
            to the next, so a rota is entered by tapping A B C in order. -->

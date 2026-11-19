@@ -95,11 +95,27 @@ power cut to be mis-dated.
 
 ### Updating
 
-`install.sh` is idempotent, so it is also the update path:
+On a Pi that is already installed, use `update.sh`. It backs up
+`config.json` and the database to `data/backups/`, pulls with `--ff-only`,
+reinstalls Python packages only when `requirements.txt` changed, restarts the
+service, and rolls back to the previous commit if the new version fails to
+start:
 
 ```bash
-cd ~/cycletime && git pull && bash deploy/install.sh
+cd ~/cycletime && bash deploy/update.sh --reboot
 ```
+
+`--reboot` reboots at the end so both kiosk screens load the new UI; leave it
+off to only restart the service. `--full` re-runs `install.sh` after the pull
+(use it when `deploy/` changed). A Pi installed before `update.sh` existed
+needs one plain pull first to get the script:
+
+```bash
+cd ~/cycletime && git pull --ff-only && bash deploy/update.sh --reboot
+```
+
+`install.sh` is idempotent too, so `git pull && bash deploy/install.sh` still
+works as a full re-install.
 
 `config.json` and `data/cycles.db` are **not tracked by git**, so your ROI,
 shift roster and recorded history all survive an update untouched.

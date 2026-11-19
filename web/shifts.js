@@ -178,11 +178,56 @@ $('nextMonth').addEventListener('click', () => {
  * reorder them without losing them. */
 const TEAM_LETTERS = ['A', 'B', 'C', 'D', 'E', 'F'];
 
-let patternTeams = [];   // the sequence being edited, one entry per shift
+let patternTeams = [];   // the sequence being edited, one entry per team
 let teamSel = 0;         // box the next tapped letter fills
+let patterns = [];       // choices from the server: {key,label,teams,hours,default_starts}
+let currentPattern = '3x8';   // what is saved
+let editPattern = '3x8';      // what the Pattern tab is editing
 
-function setPatternTeams(list) {
-  patternTeams = starts.map((_, i) => list[i]);
+const patternInfo = (key) => patterns.find((p) => p.key === key) || patterns[0];
+const startIds = () => [...document.querySelectorAll('#startFields input')].map((el) => el.id);
+const startValues = () => startIds().map((id) => $(id).value);
+
+function renderPatternPick() {
+  $('patternPick').innerHTML = patterns.map((p) => `
+    <button type="button" class="pattern-btn${p.key === editPattern ? ' on' : ''}"
+      data-key="${p.key}">${p.label}</button>`).join('');
+  $('patternPick').querySelectorAll('.pattern-btn').forEach((el) => {
+    el.addEventListener('click', () => choosePattern(el.dataset.key));
+  });
+
+  $('calPattern').innerHTML = patterns.map((p) =>
+    `<option value="${p.key}"${p.key === currentPattern ? ' selected' : ''}>${p.label}</option>`,
+  ).join('');
+}
+
+function renderStartFields(values) {
+  const info = patternInfo(editPattern);
+  $('startFields').innerHTML = values.map((v, i) => `
+    <div class="field">
+      <label for="s${i}">Shift ${i + 1} start (${info.hours} h)</label>
+      <input type="time" id="s${i}" value="${v || ''}">
+    </div>`).join('');
+  // Edited start times label the boxes, so the picker keeps showing which team
+  // works which clock hour.
+  startIds().forEach((id) => $(id).addEventListener('change', renderTeams));
+}
+
+/* Switching pattern in the editor reshapes the form: the new pattern's
+ * default start times, and the team list trimmed or padded to its count.
+ * Nothing is stored until "Save pattern". */
+function choosePattern(key) {
+  editPattern = key;
+  const info = patternInfo(key);
+  const keep = key === currentPattern ? starts : info.default_starts;
+  renderStartFields(keep);
+  setPatternTeams(patternTeams, info.teams);
+  renderPatternPick();
+}
+
+function setPatternTeams(list, count) {
+  const n = count || patternInfo(editPattern).teams;
+  patternTeams = Array.from({ length: n }, (_, i) => list[i]);
   // A short or duplicated list can only come from a hand-edited config; fill it
   // out here rather than letting the picker start in a state it cannot express.
   patternTeams.forEach((t, i) => {
@@ -195,11 +240,13 @@ function setPatternTeams(list) {
 }
 
 function renderTeams() {
-  const times = ['s0', 's1', 's2'].map((id) => $(id).value);
+  const times = startValues();
 
+  // With more teams than shifts (3 teams x 12 h) the extra box is the team
+  // that is off on the anchor date; the rotation brings it on next period.
   $('teamSeq').innerHTML = patternTeams.map((t, i) => `
     <button type="button" class="team-slot${i === teamSel ? ' sel' : ''}" data-slot="${i}">
-      <span class="team-slot-time">${times[i] || `Shift ${i + 1}`}</span>
+      <span class="team-slot-time">${i < times.length ? (times[i] || `Shift ${i + 1}`) : 'Off'}</span>
       <span class="team-slot-name">${t || '–'}</span>
     </button>`).join('');
 
@@ -237,15 +284,47 @@ async function loadPattern() {
   const c = await fetch('/api/shifts/config').then((r) => r.json());
   starts = c.starts || [];
   teams = c.teams || [];
-  ['s0', 's1', 's2'].forEach((id, i) => { $(id).value = starts[i] || ''; });
+  patterns = c.patterns || [];
+  currentPattern = editPattern = c.pattern || '3x8';
+  renderStartFields(starts);
   $('rotDays').value = c.rotation_days;
   $('anchor').value = c.rotation_anchor;
   setPatternTeams(teams);
+  renderPatternPick();
 }
 
-// Edited start times label the boxes, so the picker keeps showing which team
-// works which clock hour.
-['s0', 's1', 's2'].forEach((id) => $(id).addEventListener('change', renderTeams));
+async function savePattern(body) {
+  const res = await fetch('/api/shifts/config', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  });
+  if (!res.ok) { toast('Could not save pattern'); return false; }
+  // Reload from the server: it repairs anything unusable rather than
+  // rejecting it, so the fields must show what was actually stored.
+  await loadPattern();
+  await loadMonth();
+  if (!$('viewPat').hidden) await loadPreview();
+  if (selected) renderEditor();
+  return true;
+}
+
+// The calendar's own selector applies a pattern straight away with its
+// default start times, keeping the existing team letters where they fit.
+$('calPattern').addEventListener('change', async (e) => {
+  const info = patternInfo(e.target.value);
+  if (!confirm(`Switch the roster to ${info.label}? Start times reset to ` +
+               `${info.default_starts.join(', ')}.`)) {
+    e.target.value = currentPattern;
+    return;
+  }
+  const letters = [...teams, ...TEAM_LETTERS.filter((l) => !teams.includes(l))];
+  if (await savePattern({
+    pattern: info.key,
+    starts: info.default_starts,
+    teams: letters.slice(0, info.teams),
+  })) toast(`Pattern: ${info.label}`);
+});
 
 Keypad.attach($('rotDays'), { title: 'Rotate every (days)' });
 
@@ -262,25 +341,14 @@ async function loadPreview() {
 }
 
 $('btnSavePattern').addEventListener('click', async () => {
-  const body = {
-    starts: ['s0', 's1', 's2'].map((id) => $(id).value),
+  const ok = await savePattern({
+    pattern: editPattern,
+    starts: startValues(),
     teams: patternTeams.filter(Boolean),
     rotation_days: parseInt($('rotDays').value, 10),
     rotation_anchor: $('anchor').value,
-  };
-  const res = await fetch('/api/shifts/config', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(body),
   });
-  if (!res.ok) return toast('Could not save pattern');
-
-  // Reload from the server: it repairs anything unusable rather than
-  // rejecting it, so the fields must show what was actually stored.
-  await loadPattern();
-  await loadPreview();
-  await loadMonth();
-  toast('Pattern saved');
+  if (ok) toast('Pattern saved');
 });
 
 /* -------------------------------------------------------------- status */

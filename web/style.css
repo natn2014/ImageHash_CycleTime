@@ -437,6 +437,38 @@ td.stop { color: var(--warning); }
 }
 .pick.on { color: var(--page); background: var(--series-1); border-color: var(--series-1); }
 
+/* ------------------------------------------------------ pattern picker */
+
+/* 2 x 2 grid of crewing patterns: 3x8, 3x12, 2x12, 2x8. */
+.pattern-pick { display: grid; grid-template-columns: 1fr 1fr; gap: 4px; }
+
+.pattern-btn {
+  font-family: var(--font);
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--text-secondary);
+  background: var(--page);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  min-height: 30px;
+  cursor: pointer;
+}
+.pattern-btn.on { color: var(--page); background: var(--series-1); border-color: var(--series-1); }
+
+/* Calendar header's quick switch. */
+.pattern-select {
+  margin-left: auto;
+  font-family: var(--font);
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-primary);
+  background: var(--page);
+  border: 1px solid var(--border);
+  border-radius: 5px;
+  padding: 3px 6px;
+  min-height: 26px;
+}
+
 /* --------------------------------------------------------- team picker */
 
 /* Same tap targets and accent as the day-override picker above: choosing who

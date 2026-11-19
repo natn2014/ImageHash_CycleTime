@@ -21,10 +21,28 @@ from fastapi.responses import (
 from fastapi.staticfiles import StaticFiles
 
 from .config import ROOT, CycleConfig, DetectorConfig, Roi, ShiftsConfig
+from .shifts import PATTERNS, get_pattern
 from .stats import histogram, summarize
 from .tracker import Tracker
 
 log = logging.getLogger(__name__)
+
+
+def _shifts_payload(s: ShiftsConfig) -> dict:
+    """Shift config as the Shifts page reads it, plus the pattern choices."""
+    return {
+        "pattern": s.pattern,
+        "shift_hours": get_pattern(s.pattern).hours,
+        "patterns": [
+            {"key": p.key, "label": p.label, "teams": p.teams,
+             "hours": p.hours, "default_starts": list(p.default_starts)}
+            for p in PATTERNS.values()
+        ],
+        "starts": list(s.starts), "teams": list(s.teams),
+        "rotation_days": s.rotation_days,
+        "rotation_anchor": s.rotation_anchor,
+        "rotation_direction": s.rotation_direction,
+    }
 
 WEB_DIR = ROOT / "web"
 
@@ -90,14 +108,8 @@ def create_app(tracker: Tracker) -> FastAPI:
 
     @app.get("/api/shifts/config")
     async def api_get_shifts():
-        s = tracker.cfg.shifts
-        return {
-            "starts": list(s.starts), "teams": list(s.teams),
-            "rotation_days": s.rotation_days,
-            "rotation_anchor": s.rotation_anchor,
-            "rotation_direction": s.rotation_direction,
-            "station": tracker.cfg.station.name,
-        }
+        return {**_shifts_payload(tracker.cfg.shifts),
+                "station": tracker.cfg.station.name}
 
     @app.post("/api/shifts/config")
     async def api_set_shifts(payload: dict):
@@ -111,12 +123,7 @@ def create_app(tracker: Tracker) -> FastAPI:
             applied = tracker.update_shifts(ShiftsConfig(**merged))
         except (TypeError, ValueError) as exc:
             raise HTTPException(status_code=400, detail=str(exc))
-        return {
-            "starts": list(applied.starts), "teams": list(applied.teams),
-            "rotation_days": applied.rotation_days,
-            "rotation_anchor": applied.rotation_anchor,
-            "rotation_direction": applied.rotation_direction,
-        }
+        return _shifts_payload(applied)
 
     @app.get("/api/shifts/current")
     async def api_current_shift():
@@ -134,6 +141,8 @@ def create_app(tracker: Tracker) -> FastAPI:
             "year": year, "month": month,
             "teams": list(tracker.cfg.shifts.teams),
             "starts": list(tracker.cfg.shifts.starts),
+            "pattern": tracker.cfg.shifts.pattern,
+            "shift_hours": get_pattern(tracker.cfg.shifts.pattern).hours,
             "days": tracker.roster.month_assignments(year, month),
         }
 

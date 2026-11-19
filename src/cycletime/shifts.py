@@ -37,6 +37,42 @@ SHIFT_HOURS = 24 // SLOTS_PER_DAY   # 8
 
 
 @dataclass(frozen=True)
+class ShiftPattern:
+    """One supported crewing pattern: how many teams, how long a shift.
+
+    `slots` is how many shifts run per day. 3 teams x 12 h runs two slots with
+    one team off each day; 2 teams x 8 h runs two slots and leaves 8 h of the
+    day unstaffed (timestamps there resolve to "nobody").
+    """
+
+    key: str
+    label: str
+    teams: int
+    hours: int
+    default_starts: tuple[str, ...]
+
+    @property
+    def slots(self) -> int:
+        return len(self.default_starts)
+
+
+PATTERNS: dict[str, ShiftPattern] = {
+    p.key: p for p in (
+        ShiftPattern("3x8", "3 Teams × 8 h", 3, 8, ("08:00", "16:00", "00:00")),
+        ShiftPattern("3x12", "3 Teams × 12 h", 3, 12, ("08:00", "20:00")),
+        ShiftPattern("2x12", "2 Teams × 12 h", 2, 12, ("08:00", "20:00")),
+        ShiftPattern("2x8", "2 Teams × 8 h", 2, 8, ("08:00", "16:00")),
+    )
+}
+DEFAULT_PATTERN = "3x8"
+
+
+def get_pattern(key: str | None) -> ShiftPattern:
+    """The named pattern, or the 3 x 8 default for anything unknown."""
+    return PATTERNS.get(key or "", PATTERNS[DEFAULT_PATTERN])
+
+
+@dataclass(frozen=True)
 class ShiftAssignment:
     """Who was on, and which production day the moment belongs to."""
 
@@ -90,6 +126,7 @@ class Roster:
         rotation_anchor: str = "2026-08-03",
         rotation_direction: int = 1,
         override_lookup=None,
+        shift_hours: int | None = None,
     ):
         # Slot index follows the order the starts are CONFIGURED in, not clock
         # order. "08:00, 16:00, 00:00" means shift 1 is the 08:00 day shift and
@@ -98,6 +135,8 @@ class Roster:
         # shift 1 and hand it to whichever team the rotation puts on slot 0.
         self.starts = [parse_hhmm(s) for s in starts]
         self.start_labels = list(starts)
+        # Default keeps the old behaviour: slots tile the day evenly.
+        self.shift_hours = shift_hours or (24 // max(1, len(self.starts)))
 
         self.teams = list(teams)
         self.rotation_days = max(1, int(rotation_days))
@@ -128,7 +167,7 @@ class Roster:
     def slot_window(self, day: date, slot: int) -> tuple[datetime, datetime]:
         """The [start, end) wall-clock window of one slot on one day."""
         start = datetime.combine(day, self.starts[slot])
-        return start, start + timedelta(hours=SHIFT_HOURS)
+        return start, start + timedelta(hours=self.shift_hours)
 
     def resolve(self, ts_local: datetime) -> ShiftAssignment:
         """Which production day and slot a local timestamp belongs to.
@@ -152,9 +191,9 @@ class Roster:
                         slot_start=self.start_labels[slot],
                     )
 
-        # Unreachable while the slots tile a full 24 hours, but a hand-edited
-        # config can leave a gap; attribute to the day rather than crashing the
-        # detector thread mid-shift.
+        # Off-shift hours: the 2 x 8 h pattern leaves 8 h of every day
+        # unstaffed, and a hand-edited start time can leave a gap. Attribute to
+        # the day with no team rather than crashing the detector thread.
         return ShiftAssignment(
             work_date=day.isoformat(), slot=-1, team=None, slot_start="",
         )

@@ -69,7 +69,10 @@ class StationConfig:
 
 @dataclass(frozen=True)
 class ShiftsConfig:
-    # Three 8-hour slots covering 24 h. Ordered by clock time inside Roster.
+    # Crewing pattern, a key of shifts.PATTERNS: "3x8", "3x12", "2x12", "2x8".
+    # It fixes the shift length and how many starts and teams are required.
+    pattern: str = "3x8"
+    # One start per slot, in shift order (not clock order).
     starts: tuple[str, ...] = ("08:00", "16:00", "00:00")
     teams: tuple[str, ...] = ("A", "B", "C")
     rotation_days: int = 7
@@ -184,24 +187,25 @@ def _validate_shifts(sh: ShiftsConfig) -> ShiftsConfig:
     not a reason to refuse to boot — fall back to the defaults for whichever
     part is unusable and keep running.
     """
-    from .shifts import parse_date, parse_hhmm   # local: avoids a cycle
+    from .shifts import get_pattern, parse_date, parse_hhmm   # local: avoids a cycle
 
     defaults = ShiftsConfig()
+    pattern = get_pattern(sh.pattern)
 
     starts = tuple(sh.starts or ())
     try:
-        if len(starts) != 3:
-            raise ValueError("need exactly three shift starts")
+        if len(starts) != pattern.slots:
+            raise ValueError(f"{pattern.key} needs {pattern.slots} shift starts")
         for s in starts:
             parse_hhmm(s)
     except (ValueError, TypeError):
-        starts = defaults.starts
+        starts = pattern.default_starts
 
     teams = tuple(str(t).strip() for t in (sh.teams or ()) if str(t).strip())
-    # One team per slot: fewer would leave a shift unstaffed by construction,
-    # more would never reach the rota.
-    if len(teams) != len(starts) or len(set(teams)) != len(teams):
-        teams = defaults.teams
+    # Exactly the pattern's team count: fewer would leave a shift unstaffed by
+    # construction, more would never reach the rota.
+    if len(teams) != pattern.teams or len(set(teams)) != len(teams):
+        teams = ("A", "B", "C", "D")[:pattern.teams]
 
     anchor = sh.rotation_anchor
     try:
@@ -211,6 +215,7 @@ def _validate_shifts(sh: ShiftsConfig) -> ShiftsConfig:
 
     return replace(
         sh,
+        pattern=pattern.key,
         starts=starts,
         teams=teams,
         rotation_days=max(1, int(sh.rotation_days or 1)),

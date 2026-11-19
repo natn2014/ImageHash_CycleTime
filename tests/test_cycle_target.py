@@ -72,35 +72,25 @@ def test_no_usable_target_produces_a_zero_piece_target(client):
         assert board["remaining"] > 0, f"{target_s}s reads as already met"
 
 
-def test_shift_length_is_eight_hours(client):
-    """The roster is fixed at three slots, so a shift is always 8 h.
-
-    config._validate_shifts repairs any other slot count back to the default,
-    which is why no supported configuration produces a different figure.
-    """
+def test_shift_length_is_eight_hours_by_default(client):
+    """The default pattern is 3 teams x 8 h."""
     assert client.get("/api/cycle").json()["pieces"]["shift_hours"] == 8.0
 
 
-def test_shift_length_is_read_from_the_roster_not_hardcoded(tmp_path):
-    """Guards the derivation itself, not a supported configuration.
-
-    Four 6-hour slots cannot survive validate() today, so this sets them on the
-    tracker directly. The point is that shift_piece_target() divides 24 h by the
-    slot count rather than assuming 8 — if the three-slot rule is ever lifted,
-    the piece target follows without anyone remembering to change it here.
-    """
+@pytest.mark.parametrize("pattern,hours,pieces", [
+    ("3x8", 8, 2000),     # 28800 / 14 = 2057 -> 2000
+    ("2x8", 8, 2000),
+    ("3x12", 12, 3000),   # 43200 / 14 = 3085 -> 3000
+    ("2x12", 12, 3000),
+])
+def test_shift_length_follows_the_selected_pattern(tmp_path, pattern, hours, pieces):
     cfg = config_mod.Config()
     cfg = replace(cfg, store=replace(cfg.store, db_path=str(tmp_path / "c.db")))
     tracker = Tracker(config_mod.validate(cfg), config_path=tmp_path / "config.json")
-    tracker.cfg = replace(
-        tracker.cfg,
-        shifts=replace(tracker.cfg.shifts,
-                       starts=("00:00", "06:00", "12:00", "18:00"),
-                       teams=("A", "B", "C", "D")),
-    )
+    tracker.update_shifts(replace(tracker.cfg.shifts, pattern=pattern))
     got = tracker.shift_piece_target()
-    assert got["shift_hours"] == 6.0
-    assert got["target"] == 1500          # 21600 / 14 = 1542 -> 1500
+    assert got["shift_hours"] == hours
+    assert got["target"] == pieces
 
 
 # --------------------------------------------------------- the wiring
