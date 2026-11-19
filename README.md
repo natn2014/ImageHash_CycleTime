@@ -13,9 +13,23 @@ with the team on shift. Two screens:
 - **40" wall board** — live seconds-per-piece for the team on shift, diff
   against target, and day / week / month team rankings with the best on top.
 
-![Scoreboard](docs/board.png)
+### 40" wall board — `/board`
 
-![Dashboard](docs/dashboard.png)
+![40-inch scoreboard: the team on shift, its latest cycle time, the diff against target, pieces made against the shift target, and day / week / month team rankings, updating live as products pass](docs/board.gif)
+
+### 7" touchscreen — dashboard `/`
+
+![7-inch dashboard: run chart with mean and target lines and the cycle-time distribution, updating as each product passes, then switching to the table of recent cycles](docs/dashboard.gif)
+
+### 7" touchscreen — camera setup `/setup`
+
+![Setup page: the live camera view with the detection box, a product crossing it and the occupancy readout; a new box is dragged out, shown as unsaved, then undone](docs/setup.gif)
+
+### 7" touchscreen — shift calendar `/shifts`
+
+![Shift calendar: switching the pattern from 3 Teams × 8 h to 3 Teams × 12 h and 2 Teams × 12 h redraws the month, then the Pattern tab shows the four pattern buttons and the team boxes changing with each](docs/shifts.gif)
+
+<sub>Recorded from the app running against a synthetic conveyor camera and seeded history.</sub>
 
 ## What you need
 
@@ -287,11 +301,36 @@ real variation. Stoppages still appear in the header chip, the table and the CSV
 
 ## Shift teams
 
-Three teams cover 24 hours in three 8-hour shifts. **The roster is calculated,
-not typed in** — you set the pattern once and the calendar fills itself forever.
-You only tap a day when something is unusual.
+**The roster is calculated, not typed in** — you pick a shift pattern and set it
+up once, and the calendar fills itself forever. You only tap a day when
+something is unusual.
 
-![Shift calendar](docs/shifts.png)
+![Shift calendar and pattern selector](docs/shifts.gif)
+
+### Shift patterns
+
+Choose one of four crewing patterns. The pattern sets how long a shift is,
+how many start times and teams the rota needs, and the per-shift piece target
+on the 40" board (a 12-hour shift has a target 1.5× that of an 8-hour one).
+
+| Pattern | Shifts per day | Default starts | Teams | How it rotates |
+|---|---|---|---|---|
+| **3 Teams × 8 h** (default) | 3 | 08:00 / 16:00 / 00:00 | A B C | Each team moves to the next shift every period |
+| **3 Teams × 12 h** | 2 | 08:00 / 20:00 | A B C | Two teams work, one is **off**; the off team comes back next period |
+| **2 Teams × 12 h** | 2 | 08:00 / 20:00 | A B | The teams swap day and night every period |
+| **2 Teams × 8 h** | 2 | 08:00 / 16:00 | A B | The teams swap shifts; the remaining 8 h have **no team** |
+
+Two places to change it:
+
+- **Calendar** — the dropdown beside the month name. It asks for confirmation,
+  then applies the pattern at once with its default start times, keeping your
+  team letters where they fit.
+- **Pattern tab** — the four buttons at the top. The start-time fields and team
+  boxes reshape to match; nothing is stored until **Save pattern**.
+
+Under **2 Teams × 8 h**, products made during the unstaffed 8 hours are still
+recorded, but count toward no team. Changing pattern does not re-attribute
+cycles already recorded — see [If the calendar was wrong](#if-the-calendar-was-wrong).
 
 ### Setting the pattern (do this once)
 
@@ -299,10 +338,11 @@ You only tap a day when something is unusual.
 
 | Field | Default | Meaning |
 |---|---|---|
-| Shift 1/2/3 start | 08:00 / 16:00 / 00:00 | Each shift runs 8 hours from its start |
-| Teams | A,B,C | One per shift, in rotation order |
+| Shift pattern | 3 Teams × 8 h | See the table above |
+| Shift 1/2(/3) start | per pattern | Each shift runs 8 or 12 hours from its start |
+| Teams | A,B(,C) | One per shift in rotation order; with 3 Teams × 12 h the third box is the team **off** on the anchor date |
 | Rotate every | 7 days | How often teams move to the next shift |
-| Rotation anchor | a date | A day on which Team A is on shift 1 |
+| Rotation anchor | a date | A day on which the first team box is on shift 1 |
 
 **Do not count weeks to work out the anchor.** Change the date and watch the
 **Next 14 days** preview beside it until it matches who is really on shift.
@@ -314,7 +354,8 @@ Shift order follows the order you enter the times, not the clock. Listing
 
 ### Overriding a day
 
-**Shifts → Calendar**. Each cell shows the three teams for that day. Tap a day,
+**Shifts → Calendar**. Each cell shows the team on each shift that day (three
+under 3 × 8 h, two under the other patterns). Tap a day,
 then tap a team for any shift. Overridden slots are marked in amber and
 underlined. **Back to rotation** clears the day.
 
@@ -325,9 +366,10 @@ untouched day follows the rotation.
 ### Which day does a shift count toward?
 
 A shift's cycles count to the day the **shift started**. With 08:00/16:00/00:00
-no shift crosses midnight, so this changes nothing. It matters if you switch to
-a late-start pattern: with a 22:00 shift, cycles recorded at 02:00 count toward
-the *previous* day, keeping one shift's performance in one bucket.
+no shift crosses midnight, so this changes nothing. It matters for any shift
+that runs past midnight — the 20:00 night shift of a 12-hour pattern, or a
+22:00 start: cycles recorded at 02:00 count toward the *previous* day, keeping
+one shift's performance in one bucket.
 
 ### If the calendar was wrong
 
@@ -376,7 +418,8 @@ shift, which the roster already knows:
 ```
 shift seconds / target cycle time, rounded DOWN to a memorable figure
 
-8 h at 14 s/piece  ->  28800 / 14  =  2057  ->  2000 pcs
+ 8 h at 14 s/piece  ->  28800 / 14  =  2057  ->  2000 pcs
+12 h at 14 s/piece  ->  43200 / 14  =  3085  ->  3000 pcs
 ```
 
 The step scales with the size of the number — hundreds in the thousands, tens
@@ -386,10 +429,9 @@ cycle) to 400, discarding 17% of an achievable target, and would floor anything
 under 100 to zero, which the board would then show as a met target with nothing
 made.
 
-The shift length is read from the roster (three 8-hour slots) rather than
-written into the formula, so the two cannot drift apart. Note that the roster
-requires exactly three shift starts — a different slot count is repaired back
-to the default — so in practice this is always 8 h. Rounding down rather than
+The shift length comes from the selected [shift pattern](#shift-patterns) —
+8 h or 12 h — the same figure the roster uses for its shift windows, so the two
+cannot drift apart. Rounding down rather than
 to nearest is deliberate: 2057 is not a number anyone carries in their head or
 writes on a whiteboard, and never rounding up keeps the target honest — it is
 never set above what the cycle time can actually deliver.
@@ -409,7 +451,7 @@ rather than leaving a stale number on the wall to be believed.
 `config.json`, next to `run.py`. The setup page writes `roi` and `detector`,
 the Shifts tab writes `shifts`; everything else is edited by hand.
 
-```json
+```jsonc
 {
   "station":  { "name": "LAYUP2" },
   "camera":   { "index": 0, "width": 640, "height": 480, "fps": 15, "fourcc": "MJPG" },
@@ -417,7 +459,8 @@ the Shifts tab writes `shifts`; everything else is edited by hand.
   "detector": { "enter_ratio": 0.15, "exit_ratio": 0.07, "diff_threshold": 25,
                 "bg_alpha": 0.02, "min_present_s": 0.3 },
   "cycle":    { "max_valid_s": 300, "target_s": 14.0, "diff_tolerance_s": 1.0 },
-  "shifts":   { "starts": ["08:00", "16:00", "00:00"], "teams": ["A", "B", "C"],
+  "shifts":   { "pattern": "3x8",   // 3x8 | 3x12 | 2x12 | 2x8
+                "starts": ["08:00", "16:00", "00:00"], "teams": ["A", "B", "C"],
                 "rotation_days": 7, "rotation_anchor": "2026-08-03",
                 "rotation_direction": 1 },
   "store":    { "db_path": "data/cycles.db", "retain_days": 90 },

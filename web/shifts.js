@@ -306,6 +306,7 @@ async function savePattern(body) {
   await loadMonth();
   if (!$('viewPat').hidden) await loadPreview();
   if (selected) renderEditor();
+  loadNow();   // who is on now may have changed with the new pattern
   return true;
 }
 
